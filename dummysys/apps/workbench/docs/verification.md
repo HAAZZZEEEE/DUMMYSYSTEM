@@ -11,3 +11,5 @@
 CLI/core 投影与 Workbench 必须配套安装。应用缺失、配置位置与安装来源需要覆盖。替身只证明派发参数；真实资源管理器、桌面窗口、Obsidian 链接迁移各自记录实测范围。浏览器服务通过不代表原生桌面或 macOS 通过。
 
 多仓库与长名称根选项卡使用 tests/browser/test_root_tabs.py：验证代码仓库下拉列表的长名称完整换行、菜单边界及纵向滚动、当前选择、键盘开关与选择、点击外部关闭、窗口尺寸变化、单仓库和跨项目切换；同时回归 test_root_context.py 与 test_workbench_browser.py 中的历史导航用例。自动化夹具的 RecordingOpener 不替代真实应用打开验证。
+
+选中动画回归直接统计浏览器 animationstart/animationend：延迟加载完成后保持一次播放，刷新和重复点击当前分类不重播。

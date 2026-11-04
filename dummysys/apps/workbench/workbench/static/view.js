@@ -211,7 +211,7 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
     const focusedRoot = rootTabs.contains(document.activeElement) ? document.activeElement.dataset.rootId : null;
     const nextTabLocation = JSON.stringify([value?.project_id, value?.root_id]);
     const changedTab = nextTabLocation !== tabLocation;
-    $('root-tabs').replaceChildren();
+    const existingTabs = new Map([...rootTabs.children].map((tab) => [tab.dataset.rootId, tab]));
     $('root-tabs').setAttribute('role', 'tablist');
     const repositories = state.roots.filter((root) => root.kind === 'repo');
     const currentRepo = repositories.find((root) => root.root_id === value?.root_id);
@@ -242,12 +242,19 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
     if (repositories.length) tabs.push({ root_id: 'repositories',
       label: currentRepo ? `代码仓库：${currentRepo.label.replace(/^代码 /, '')}` : `代码仓库（${repositories.length}）` });
     if (tabs.length || !value) tabLocation = nextTabLocation;
-    for (const root of tabs) {
+    for (const [index, root] of tabs.entries()) {
       const repoSelector = root.root_id === 'repositories';
       const rootTarget = repoSelector ? null : nav.rootTarget(root.root_id);
-      const tab = mark(document.createElement('button'), repoSelector ? 'repo-root-selector' : 'root-tab', rootTarget);
+      const existing = existingTabs.get(root.root_id);
+      const tab = mark(existing || document.createElement('button'), repoSelector ? 'repo-root-selector' : 'root-tab', rootTarget);
+      const wasSelected = tab.classList.contains('active');
       const selected = repoSelector ? !!currentRepo : root.root_id === value.root_id;
-      tab.className = `root-tab${selected ? ' active' : ''}`;
+      // 加载进度通知不重建按钮，保留正在播放的伪元素动画和键盘焦点。
+      tab.classList.add('root-tab');
+      tab.classList.toggle('active', selected);
+      if (!selected || (!wasSelected && changedTab)) tab.classList.remove('selection-static');
+      // 刷新根列表后恢复同一选中项时，只恢复下划线，不重播选中动画。
+      if (!existing && selected && !changedTab) tab.classList.add('selection-static');
       tab.textContent = root.label;
       tab.title = root.label;
       tab.dataset.rootId = root.root_id;
@@ -287,8 +294,10 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
         const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
         tabs[next].focus();
       };
-      $('root-tabs').append(tab);
+      if (rootTabs.children[index] !== tab) rootTabs.insertBefore(tab, rootTabs.children[index] || null);
     }
+    const rootIds = new Set(tabs.map((root) => root.root_id));
+    for (const [rootId, tab] of existingTabs) if (!rootIds.has(rootId)) tab.remove();
     rootTabs.scrollLeft = scrollLeft;
     const focusedTab = [...rootTabs.children].find((tab) => tab.dataset.rootId === focusedRoot);
     focusedTab?.focus({ preventScroll: true });

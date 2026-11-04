@@ -28,6 +28,57 @@ class RootTabsTests(BrowserCase):
         self.page.get_by_role('tab', name='代码仓库', exact=True).click()
         expect(self.page.get_by_role('menu', name='代码仓库', exact=True)).to_be_visible()
 
+    def test_selection_animation_does_not_replay_after_loading(self):
+        self.project()
+        self.page.evaluate('''async () => {
+            const host = document.getElementById('root-tabs');
+            await Promise.all(host.getAnimations({subtree: true})
+                .filter(animation => animation.animationName === 'tabpop')
+                .map(animation => animation.finished.catch(() => {})));
+            window.__tabAnimations = [];
+            for (const type of ['animationstart', 'animationend']) {
+                host.addEventListener(type, event => {
+                    if (event.animationName === 'tabpop') window.__tabAnimations.push({
+                        type, root: event.target.dataset.rootId, pseudo: event.pseudoElement});
+                });
+            }
+        }''')
+        self.delay('list', project=A, relative='')
+        self.page.get_by_role('tab', name='根目录：项目资源', exact=True).click()
+        self.delay_ready()
+        self.page.wait_for_function("window.__tabAnimations.some(event => event.type === 'animationend' && event.root === 'resources')")
+        self.release()
+        self.ready(root='resources')
+        self.page.evaluate('''async () => {
+            await Promise.all(document.getElementById('root-tabs').getAnimations({subtree: true})
+                .filter(animation => animation.animationName === 'tabpop')
+                .map(animation => animation.finished.catch(() => {})));
+        }''')
+        starts = self.page.evaluate("window.__tabAnimations.filter(event => event.type === 'animationstart' && event.root === 'resources' && event.pseudo === '::after')")
+        self.assertEqual(len(starts), 1, starts)
+        self.page.locator('#btn-refresh').click()
+        self.ready(root='resources')
+        self.page.get_by_role('tab', name='根目录：项目资源', exact=True).click()
+        self.ready(root='resources')
+        self.page.evaluate('''async () => {
+            await Promise.all(document.getElementById('root-tabs').getAnimations({subtree: true})
+                .filter(animation => animation.animationName === 'tabpop')
+                .map(animation => animation.finished.catch(() => {})));
+        }''')
+        self.assertEqual(self.page.evaluate("window.__tabAnimations.filter(event => event.type === 'animationstart').length"), 1)
+        self.delay('list', project=A, relative='')
+        self.page.get_by_role('tab', name='根目录：文档', exact=True).click()
+        self.delay_ready()
+        self.page.wait_for_function("window.__tabAnimations.some(event => event.type === 'animationend' && event.root === 'docs')")
+        self.release()
+        self.ready()
+        self.page.evaluate('''async () => {
+            await Promise.all(document.getElementById('root-tabs').getAnimations({subtree: true})
+                .filter(animation => animation.animationName === 'tabpop')
+                .map(animation => animation.finished.catch(() => {})));
+        }''')
+        self.assertEqual(self.page.evaluate("window.__tabAnimations.filter(event => event.type === 'animationstart' && event.root === 'docs').length"), 1)
+
     def test_many_long_names_in_bounded_dropdown(self):
         self.prepare()
         expect(self.page.locator('#repo-root-menu')).to_be_hidden()
