@@ -104,6 +104,11 @@ class ConfigTest(unittest.TestCase):
         self.assertEqual(loaded["schema_version"], 1)
         self.assertIsNone(loaded["apps"]["vscode_exe"])
 
+    def test_window_icon_path_is_relative_to_config_not_cwd(self):
+        path = self._config('cfg/config.json', self._valid(apps={'window_icon_path': '../图标 文件.ico'}))
+        loaded = load_config(path)
+        self.assertEqual(loaded['apps']['window_icon_path'], str(self.root / '图标 文件.ico'))
+
 
 if __name__ == "__main__":
     unittest.main()

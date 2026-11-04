@@ -14,7 +14,7 @@ from dummysys_core import locations as loc
 SCHEMA_VERSION = 1
 DEFAULT_PORT = 0
 REQUIRED_KEYS = ("workspace_root", "task_root")
-APP_KEYS = ("vscode_exe", "edge_exe", "obsidian_vault_path", "window_launcher_exe")
+APP_KEYS = ("vscode_exe", "edge_exe", "obsidian_vault_path", "window_launcher_exe", "window_icon_path")
 KNOWN_KEYS = {"schema_version", "workspace_root", "task_root", "port", "apps"}
 
 
@@ -65,6 +65,8 @@ def load_config(config_path: str | Path) -> dict:
         value = apps_raw.get(key)
         if value in (None, ""):
             apps[key] = None
+        elif key == 'window_icon_path':
+            apps[key] = str(_resolve_path(base, str(value)))
         else:
             apps[key] = str(value)
     port = raw.get("port", DEFAULT_PORT)

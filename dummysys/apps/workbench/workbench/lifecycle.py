@@ -21,6 +21,7 @@ from uuid import uuid4
 
 from .instance_control import InstanceMutex, PipeControl
 from .windows_identity import process_identity, identity_matches, current_user_sid, process_alive
+from .processes import spawn_background
 
 APP_ID = "dummysys.workbench"
 SCHEMA_VERSION = 1
@@ -262,10 +263,8 @@ class Lifecycle:
                 args = ([sys.executable] if getattr(sys, "frozen", False)
                         else [sys.executable, "-B", "-m", "workbench"])
                 args += ["restart", "--config", str(config_path)]
-                flags = (subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
-                         if os.name == "nt" else 0)
                 try:
-                    subprocess.Popen(args, creationflags=flags, stdin=subprocess.DEVNULL,
+                    spawn_background(args, independent=True, stdin=subprocess.DEVNULL,
                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 except OSError:
                     raise RuntimeError("重启服务失败：无法启动重启进程") from None
@@ -324,10 +323,8 @@ class Lifecycle:
                 args = ([sys.executable] if getattr(sys, "frozen", False)
                         else [sys.executable, "-B", "-m", "workbench"])
                 args += ["serve", "--config", str(config_path)]
-                flags = (subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
-                         if os.name == "nt" else 0)
                 try:
-                    subprocess.Popen(args, creationflags=flags, stdin=subprocess.DEVNULL,
+                    spawn_background(args, independent=True, stdin=subprocess.DEVNULL,
                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 except OSError:
                     raise RuntimeError("启动服务失败") from None

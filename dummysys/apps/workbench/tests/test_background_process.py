@@ -3,6 +3,8 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -43,6 +45,21 @@ class BackgroundProcessTest(unittest.TestCase):
         with patch('subprocess.Popen') as spawn:
             WindowsOpener._spawn(['example.exe'])
         self.assertEqual(spawn.call_args.kwargs['creationflags'], subprocess.CREATE_NO_WINDOW)
+
+    def test_independent_window_host_has_no_console_in_real_venv_child(self):
+        # 实际经过 WindowsOpener -> venv redirector -> 基础 Python，不能只看 Popen 参数。
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / 'console.json'
+            code = ('import ctypes,json,pathlib; '
+                    'pathlib.Path(' + repr(str(output)) + ').write_text('
+                    'json.dumps({"console":bool(ctypes.windll.kernel32.GetConsoleWindow())}))')
+            process = WindowsOpener._spawn([sys.executable, '-I', '-B', '-c', code], detach=True)
+            deadline = time.monotonic() + 5
+            while not output.exists() and time.monotonic() < deadline:
+                time.sleep(0.05)
+            self.assertTrue(output.exists(), '子进程没有写出控制台检查结果')
+            self.assertEqual(process.wait(timeout=5), 0)
+            self.assertFalse(json.loads(output.read_text())['console'], '独立窗口宿主创建了控制台')
 
     def test_cli_from_detached_host_has_no_console(self):
         probe = "import ctypes,json; print(json.dumps({'schema_version':1,'data':{'console':bool(ctypes.windll.kernel32.GetConsoleWindow())}}))"

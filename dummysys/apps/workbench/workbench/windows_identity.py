@@ -6,6 +6,20 @@ from ctypes import wintypes
 import os
 
 
+WORKBENCH_APP_ID = 'DUMMYSYS.Workbench'
+
+
+def set_workbench_app_id():
+    """GUI 创建前声明应用身份，避免任务栏将工作台归入 Python 进程组。"""
+    if os.name != 'nt':
+        return
+    api = ctypes.WinDLL('shell32')
+    api.SetCurrentProcessExplicitAppUserModelID.argtypes = [wintypes.LPCWSTR]
+    api.SetCurrentProcessExplicitAppUserModelID.restype = ctypes.c_long
+    if api.SetCurrentProcessExplicitAppUserModelID(WORKBENCH_APP_ID) < 0:
+        raise RuntimeError('无法设置工作台窗口身份')
+
+
 def _kernel32():
     if os.name != "nt":
         raise RuntimeError("进程身份查询仅支持 Windows")

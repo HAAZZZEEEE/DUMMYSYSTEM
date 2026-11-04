@@ -16,6 +16,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from .action_policy import SCRIPT_EXTENSIONS
+from .processes import spawn_background
 from .instance_control import (InstanceMutex, PipeControl, instance_digest, mutex_name,
                                pipe_name, _user_sid, _close_handle)
 from .windows_identity import process_identity, current_user_sid
@@ -171,13 +172,9 @@ class WindowsOpener:
         self._spawn(args, detach=True)
 
     @staticmethod
-    def _spawn(args: list[str], detach: bool = False) -> None:
-        flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-        if detach and os.name == "nt":
-            flags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
-        creationflags = flags if os.name == "nt" else 0
+    def _spawn(args: list[str], detach: bool = False) -> subprocess.Popen:
         try:
-            subprocess.Popen(args, creationflags=creationflags,
+            return spawn_background(args, independent=detach,
                              stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                              stderr=subprocess.DEVNULL)
         except OSError as error:
