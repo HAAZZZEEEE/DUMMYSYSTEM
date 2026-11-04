@@ -21,6 +21,8 @@
 
 ## dmy init
 
+- `--vault-root`：可选；类型 str；默认 "dmy_vault"
+- `--runtime-root`：可选；类型 str；默认 "runtime"
 
 ## dmy context
 

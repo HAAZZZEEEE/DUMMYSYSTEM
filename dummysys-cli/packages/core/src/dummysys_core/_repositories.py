@@ -2,6 +2,8 @@
 """登记 Repo、绑定本机 checkout、关联 Project/Task，并保存 Run 的源码证据。"""
 from __future__ import annotations
 
+from dummysys_core import locations as loc
+
 import argparse
 import hashlib
 import json
@@ -30,12 +32,12 @@ def catalog(root):
         key = repo_key(meta.get('repo_id'))
         if key in result:
             raise ValueError(f'Repo 身份重复：{key}')
-        result[key] = dict(meta, document=path.relative_to(root).as_posix())
+        result[key] = dict(meta, document=loc.relative(root, path).as_posix())
     return result
 
 
 def mapping_path(root):
-    return root / 'runtime/state/workspace/repositories.json'
+    return loc.runtime(root) / 'state/workspace/repositories.json'
 
 
 def mappings(root):

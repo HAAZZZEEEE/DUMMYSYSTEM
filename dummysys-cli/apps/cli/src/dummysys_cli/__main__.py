@@ -18,6 +18,7 @@ from dummysys_core.telemetry import capture, measured
 from dummysys_core import __version__, _repositories as repos, _records as records
 from dummysys_core.operations import GovernanceError, workspace_lock
 from dummysys_core.workspace import Workspace
+from dummysys_core import locations as loc
 
 
 
@@ -140,7 +141,7 @@ def _main(argv, stages):
         global_args, remaining = globals_parser.parse_known_args(argv)
         try:
             candidate = configured_workspace(global_args.workspace, global_args.config).resolve() if remaining[:1] != ['init'] else None
-            if candidate is not None and (candidate / 'dmy_vault').is_dir():
+            if candidate is not None and loc.vault(candidate).is_dir():
                 usage_root = candidate
         except (ValueError, KeyError, OSError):
             pass
@@ -154,7 +155,7 @@ def _main(argv, stages):
             if not global_args.workspace:
                 raise GovernanceError('INVALID_ARGUMENT', 'init 必须显式提供 --workspace 绝对路径')
             from dummysys_core.initialize import initialize
-            data = initialize(global_args.workspace)
+            data = initialize(global_args.workspace, vault_root=args.vault_root, runtime_root=args.runtime_root)
         elif args.group == 'stats':
             if args.days is not None and args.days < 1:
                 raise ValueError('--days 必须大于 0')

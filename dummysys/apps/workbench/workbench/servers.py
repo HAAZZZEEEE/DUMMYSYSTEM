@@ -1,9 +1,11 @@
 """本机服务器档案的只读展示投影；认证材料不进入响应。"""
+
+from dummysys_core import locations as loc
 import json
 
 
 def server_inventory(workspace):
-    source = workspace / 'runtime/servers/profiles.json'
+    source = loc.runtime(workspace) / 'servers/profiles.json'
     try:
         document = json.loads(source.read_text(encoding='utf-8'))
         profiles = document['profiles']

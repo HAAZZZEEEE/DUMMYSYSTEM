@@ -4,10 +4,12 @@ from pathlib import Path
 from uuid import uuid4
 import json
 import os
+import errno
 
 from .operations import GovernanceError, workspace_lock, save
 from . import _records as records
 from .layout import governance_paths
+from . import locations as loc
 
 
 def _note(title, body, kind="system", status="active", **properties):
@@ -17,34 +19,43 @@ def _note(title, body, kind="system", status="active", **properties):
     return f"---\n{front}\n---\n\n# {title}\n\n{body.rstrip()}\n"
 
 
-def initialize(workspace):
+def _ignore_directory(relative):
+    text = Path(relative).as_posix()
+    return '/' + ''.join('\\' + char if char in '\\[]*?!# ' else char for char in text) + '/\n'
+
+
+def initialize(workspace, *, vault_root='dmy_vault', runtime_root='runtime'):
     requested = Path(workspace)
     if not requested.is_absolute():
         raise GovernanceError("INVALID_ARGUMENT", "--workspace 必须为绝对路径")
     if requested.is_symlink() or (hasattr(requested, "is_junction") and requested.is_junction()):
         raise GovernanceError("INVALID_ARGUMENT", "初始化目标不能是目录链接")
     root = requested.resolve()
-    with workspace_lock(root):
-        if root.exists() and (not root.is_dir() or any(root.iterdir())):
-            raise GovernanceError("WORKSPACE_NOT_EMPTY", "初始化目标必须不存在或为空；已保留原内容",
-                                  workspace=str(root), next_action="选择新的空目录；已有工作区使用显式 --workspace 接续")
+    locations = loc.configured(root, str(vault_root), str(runtime_root))
+    with workspace_lock(root, snapshot_locations=False):
+        for target in (root, locations.vault, locations.runtime):
+            if target.exists() and (not target.is_dir() or any(target.iterdir())):
+                raise GovernanceError("WORKSPACE_NOT_EMPTY", "工作区、Vault 与 runtime 初始化目标均须不存在或为空；已保留原内容",
+                                      workspace=str(root), path=str(target), next_action="选择新的空目录；已有工作区使用显式 --workspace 接续")
         workspace_id = str(uuid4())
-        receipt = root / "runtime/state/workspace/init.json"
+        receipt = locations.runtime / "state/workspace/init.json"
         stage = "创建目录"
         try:
             root.mkdir(parents=True, exist_ok=True)
+            save(root / loc.CONFIG_NAME, dict(schema_version=1, vault_root=str(vault_root), runtime_root=str(runtime_root)))
             for relative in ("dmy_vault/00-入口", "dmy_vault/10-系统/仓库", "dmy_vault/20-知识",
                              "dmy_vault/30-项目/00-Playground", "dmy_vault/80-附件",
                              "dmy_vault/90-模板", "dmy_vault/99-收件箱",
                              "runtime/project_src", "runtime/cache", "runtime/logs", "runtime/tmp",
                              "runtime/state/workspace", "runtime/workbench"):
-                (root / relative).mkdir(parents=True, exist_ok=True)
+                loc.resolve(root, relative).mkdir(parents=True, exist_ok=True)
             save(receipt, dict(schema_version=1, workspace_id=workspace_id, status="initializing"))
             stage = "生成通用规则与模板"
             rules = governance_paths(root)
             instructions = """# 工作区执行入口
 
-本文件所在 Vault 的上一级是工作区根；命令显式传 --workspace 或使用 runtime/state/cli/bin/dmy.cmd。
+工作区与 Vault 不必相邻；使用初始化回执的 workspace 路径显式传 --workspace，或使用安装器生成的固定 CLI 入口。
+根目录 .dummysys-workspace.json 声明 Vault 与 runtime 位置；相对路径只相对工作区根。
 读取 00-入口/DUMMYSYS.md 了解用途。选择文件位置时读 10-系统/DUMMYSYS目录与资源治理.md；
 创建或接续 Task、执行 Run 时读 10-系统/项目与任务执行规范.md；编辑知识时读 10-系统/Obsidian知识库规范.md。
 先读取所属项目 README 与 AGENTS，再按需进入 Task 当前摘要和证据。普通阅读不要求登记 Task。
@@ -54,7 +65,12 @@ Project/Task/Run 结构通过 CLI 修改；分析正文按职责编辑。保留�
 """
             rules["instructions"].write_text(instructions, encoding="utf-8")
             # 现有布局要求根入口与 Vault 权威说明为同一文件。
-            os.link(rules["instructions"], root / "AGENTS.md")
+            try:
+                os.link(rules["instructions"], root / "AGENTS.md")
+            except OSError as error:
+                if error.errno != errno.EXDEV and getattr(error, 'winerror', None) != 17:
+                    raise
+                (root / 'AGENTS.md').write_text(loc.entry_pointer(root, rules['instructions']), encoding='utf-8')
             rules["home"].write_text(_note("DUMMYSYS",
                 "DUMMYSYS 用 Project/Task/Run 组织 Agent 辅助工作中的文件、工作记录与阅读入口。\n\n"
                 "Project 表达持续主题，Task 保存一项工作的目标、范围和当前摘要，Run 保留一次执行的来源、输入、结果和证据。"
@@ -88,30 +104,33 @@ Project/Task/Run 结构通过 CLI 修改；分析正文按职责编辑。保留�
             }.items():
                 (rules["templates"] / (title + ".md")).write_text(_note(title, body), encoding="utf-8")
             stage = "生成空项目与入口"
-            readme = root / "dmy_vault/30-项目/00-Playground/README.md"
+            readme = locations.vault / "30-项目/00-Playground/README.md"
             readme.write_text(_note("Playground", "用于尚未归入长期项目的工作。", "project"), encoding="utf-8")
             project_id = records.initialize_project(root, "00-Playground")
             records.refresh(root, "00-Playground")
             manifest = dict(schema_version=1, documents=["AGENTS.md", "dmy_vault/00-入口/*.md", "dmy_vault/10-系统/*.md"])
             save(root / ".dummysys-docs.json", manifest)
-            (root / ".gitignore").write_text("runtime/\n", encoding="utf-8")
-            (root / "runtime/README.md").write_text("# 本机运行资料\n\n环境、配置、缓存、日志与项目执行证据存于此目录。\n", encoding="utf-8")
+            ignored = _ignore_directory(locations.runtime.relative_to(root)) if locations.runtime.is_relative_to(root) else ''
+            (root / ".gitignore").write_text(ignored, encoding="utf-8")
+            (locations.runtime / "README.md").write_text("# 本机运行资料\n\n环境、配置、缓存、日志与项目执行证据存于此目录。\n", encoding="utf-8")
             stage = "生成目标工作区配置"
-            config = root / "runtime/state/workspace/cli.json"
+            config = locations.runtime / "state/workspace/cli.json"
             save(config, dict(schema_version=1, workspace=str(root)))
-            wb_config = root / "runtime/workbench/config.json"
+            wb_config = locations.runtime / "workbench/config.json"
             save(wb_config, dict(schema_version=1, workspace_root=str(root),
-                                task_root=str(root / "runtime/workbench"), port=0, apps={}))
-            save(root / "runtime/workbench/source.json", dict(schema_version=1, mode="wheel", config=str(wb_config)))
+                                task_root=str(locations.runtime / "workbench"), port=0, apps={}))
+            save(locations.runtime / "workbench/source.json", dict(schema_version=1, mode="wheel", config=str(wb_config)))
             result = dict(schema_version=1, workspace_id=workspace_id, status="completed",
-                          workspace=str(root), project_id=project_id, config=str(config), workbench_config=str(wb_config))
+                          workspace=str(root), project_id=project_id, config=str(config), workbench_config=str(wb_config),
+                          **locations.as_dict())
             save(receipt, result)
             return result
         except Exception as error:
             # 不清理目标目录：保留已完成文件和失败位置，供用户核对。
             details = dict(schema_version=1, workspace_id=workspace_id, status="failed", stage=stage,
                            error_type=type(error).__name__, workspace=str(root),
-                           next_action="保留此目录核对 runtime/state/workspace/init.json；修复原因后选择另一个空目录初始化，不在非空目录重试")
+                           receipt=str(receipt), locations=locations.as_dict(),
+                           next_action="保留工作区、Vault 和 runtime 三处现场并核对 init.json；修复后使用新的空目标，不覆盖重试")
             try:
                 save(receipt, details)
             except OSError:

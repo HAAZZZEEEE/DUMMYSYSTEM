@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from dummysys_core import locations as loc
 
 SCHEMA_VERSION = 1
 DEFAULT_PORT = 0
@@ -50,6 +51,10 @@ def load_config(config_path: str | Path) -> dict:
     task_root = _resolve_path(base, str(raw["task_root"]))
     if not workspace_root.is_dir():
         raise ConfigError(f"workspace_root 不存在：{workspace_root}")
+    try:
+        loc.load(workspace_root)
+    except ValueError as error:
+        raise ConfigError(f"工作区资料位置无效：{error}") from error
     apps_raw = raw.get("apps")
     if apps_raw is None:
         apps_raw = {}

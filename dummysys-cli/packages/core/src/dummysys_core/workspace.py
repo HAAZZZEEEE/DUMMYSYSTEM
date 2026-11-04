@@ -1,6 +1,8 @@
 """供 CLI、兼容入口和工作台复用的工作区接口。"""
 from __future__ import annotations
 
+from dummysys_core import locations as loc
+
 import json
 from pathlib import Path
 import shutil
@@ -32,7 +34,7 @@ def read_view(method):
 class Workspace:
     def __init__(self, root):
         self.root = Path(root).resolve()
-        if not (self.root / 'dmy_vault').is_dir():
+        if not (loc.vault(self.root)).is_dir():
             raise GovernanceError('INVALID_WORKSPACE', '工作区缺少 dmy_vault', path=str(self.root))
         self.operations = Operations(self.root)
 
@@ -61,7 +63,7 @@ class Workspace:
         return self._paths_version(paths)
 
     def _paths_version(self, paths):
-        return digest(json.dumps([(p.relative_to(self.root).as_posix(), digest(payload(p)))
+        return digest(json.dumps([(loc.relative(self.root, p).as_posix(), digest(payload(p)))
                                   for p in paths], ensure_ascii=False).encode())
 
     @read_view
@@ -133,7 +135,7 @@ class Workspace:
             if value['run_id'] in seen:
                 raise GovernanceError('STATE_CONFLICT','Run ID 重复，无法唯一查询或更新',run=value['run_id'],paths=[seen[value['run_id']],str(path)])
             seen[value['run_id']]=str(path)
-            version = digest(json.dumps([(path.relative_to(self.root).as_posix(), digest(raw))],
+            version = digest(json.dumps([(loc.relative(self.root, path).as_posix(), digest(raw))],
                                         ensure_ascii=False).encode())
             result.append(dict(value, record=str(path), version=version))
         return result
@@ -480,7 +482,7 @@ class Workspace:
     def _update_records_after_migration(self, action, plan, p):
         """迁移完成后刷新记录：标题/状态/路径绑定与派生入口。"""
         from ._paths import project_readmes
-        base = self.root / 'dmy_vault/30-项目'
+        base = loc.vault(self.root) / '30-项目'
         if action == 'project.rename':
             readme = Path(plan['docs_target']) / 'README.md'
             if readme.exists():
@@ -524,15 +526,15 @@ class Workspace:
                 meta_path = Path(plan['resource_target']) / 'task.json'
                 meta = records.read_json(meta_path)
                 meta.update(project_id=plan['target_project_id'], repositories=plan['repositories'],
-                            docs_root=Path(plan['docs_target']).relative_to(self.root).as_posix(),
-                            resource_root=Path(plan['resource_target']).relative_to(self.root).as_posix())
+                            docs_root=loc.relative(self.root, Path(plan['docs_target'])).as_posix(),
+                            resource_root=loc.relative(self.root, Path(plan['resource_target'])).as_posix())
                 records.write_json(meta_path, meta)
                 for child in doc.parent.rglob('*.md'):
                     if child != doc and records.properties(child).get('project'):
                         records.set_properties(child, {'project': updates['project']})
                 for name, number in ((plan['source_project'], plan['source_high_watermark']),
                                      (plan['target_project'], int(plan['new_number']))):
-                    binding_path = self.root / 'runtime/project_src' / name / 'project.json'
+                    binding_path = loc.runtime(self.root) / 'project_src' / name / 'project.json'
                     binding = records.read_json(binding_path)
                     binding['task_number_high_watermark'] = max(int(binding.get('task_number_high_watermark', 0)), number)
                     records.write_json(binding_path, binding)
@@ -542,8 +544,8 @@ class Workspace:
                 text = doc.read_text(encoding='utf-8')
                 if note not in text:
                     doc.write_text(text + note, encoding='utf-8')
-                source_readme = self.root / 'dmy_vault/30-项目' / plan['source_project'] / 'README.md'
-                destination = doc.with_suffix('').relative_to(self.root / 'dmy_vault').as_posix()
+                source_readme = loc.vault(self.root) / '30-项目' / plan['source_project'] / 'README.md'
+                destination = doc.with_suffix('').relative_to(loc.vault(self.root)).as_posix()
                 breadcrumb = f"\n- 已迁出 Task {plan['old_number']}：[[{destination}|{records.properties(doc).get('title', plan['new_name'])}]]；{plan['reason']}。\n"
                 source_text = source_readme.read_text(encoding='utf-8')
                 if breadcrumb not in source_text:
@@ -606,7 +608,7 @@ class Workspace:
                 for sub in ref.get('paths', ['.']):
                     if not (Path(ref['path']) / sub).resolve(strict=True).is_relative_to(Path(ref['path']).resolve()):
                         raise GovernanceError('SCOPE_VIOLATION', '源码子路径经链接越界')
-        temp_root = self.root / 'runtime/tmp/dmy'
+        temp_root = loc.runtime(self.root) / 'tmp/dmy'
         temp_root.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix='source-', dir=temp_root) as temporary:
             evidence = Path(temporary)
@@ -615,7 +617,7 @@ class Workspace:
                 if self.version('task', p['task']) != task_version or json.dumps(repos.resolve(self.root, task=p['task']), sort_keys=True) != original_refs:
                     raise GovernanceError('VERSION_CONFLICT', '取证期间 Task 或 Repo 关联发生变化')
                 repos.verify_capture(captured, evidence)
-                target_run = stage / run_path.relative_to(self.root)
+                target_run = stage / loc.relative(self.root, run_path)
                 destination = target_run.parent / 'source-snapshot'
                 shutil.copytree(evidence, destination)
                 current = records.read_json(target_run)

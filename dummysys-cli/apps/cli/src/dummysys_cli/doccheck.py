@@ -1,4 +1,6 @@
 """当前文档维护映射、显式路径和生成式命令参考检查。"""
+
+from dummysys_core import locations as loc
 import json
 import hashlib
 from pathlib import Path
@@ -8,10 +10,20 @@ from urllib.parse import unquote
 
 def _matches(base, pattern):
     # 仅 * 和 ? 是通配符；[task n] 始终是字面目录，缺失时不能匹配 t 等字符。
-    literal=base/pattern
+    literal=loc.resolve(base, pattern)
     if literal.exists(): return [literal]
     if '*' not in pattern and '?' not in pattern: return []
+    parts=Path(pattern).parts
+    if parts and parts[0] in ('dmy_vault','runtime'):
+        base=loc.resolve(base, parts[0]); pattern=Path(*parts[1:]).as_posix()
     return list(base.glob(pattern.replace('[','[[]')))
+
+
+def _inside(base, path):
+    try:
+        return path.resolve().is_relative_to(loc.boundary(base, loc.relative(base, path)))
+    except ValueError:
+        return False
 
 
 def command_reference():
@@ -36,7 +48,7 @@ def check_docs(workspace, roots=None):
     failures=[]
     if roots is None:
         roots=[workspace]
-        mapping=workspace/'runtime/state/workspace/repositories.json'
+        mapping=loc.runtime(workspace) / 'state/workspace/repositories.json'
         if mapping.exists():
             try:
                 data=json.loads(mapping.read_text(encoding='utf-8-sig'))
@@ -71,7 +83,7 @@ def check_docs(workspace, roots=None):
                         if not _matches(base,pattern):
                             failures.append(dict(code='MAPPING_MISSING',path=str(manifest),target=pattern,field=field))
             for path in sorted(files):
-                if not path.resolve().is_relative_to(base):
+                if not _inside(base,path):
                     failures.append(dict(code='DOC_OUTSIDE_ROOT',path=str(path))); continue
                 checked+=1
                 fenced=False
@@ -94,16 +106,16 @@ def check_docs(workspace, roots=None):
                 if not path.is_file() or path.read_text(encoding='utf-8') != command_reference():
                     failures.append(dict(code='REFERENCE_STALE',path=str(path),next_action='运行 scripts/command_reference.py 后核对差异'))
             for derived in spec.get('derived_documents', []):
-                output = base / derived['output']
-                if not output.resolve().is_relative_to(base) or not output.is_file():
+                output = loc.resolve(base, derived['output'])
+                if not _inside(base, output) or not output.is_file():
                     failures.append(dict(code='DERIVED_OUTPUT_MISSING', path=str(output)))
                     continue
                 if not isinstance(derived.get('rebuild'), str) or not derived['rebuild'].strip() or not derived.get('sources'):
                     raise ValueError('派生文档须声明非空 sources 和 rebuild 入口')
                 derived_checked += 1
                 for source in derived['sources']:
-                    path = base / source['path']
-                    if not path.resolve().is_relative_to(base) or not path.is_file():
+                    path = loc.resolve(base, source['path'])
+                    if not _inside(base, path) or not path.is_file():
                         failures.append(dict(code='DERIVED_SOURCE_MISSING', path=str(output), target=str(path)))
                         continue
                     expected = source['sha256']
@@ -113,7 +125,7 @@ def check_docs(workspace, roots=None):
                         review_required.append(dict(code='SOURCE_CHANGED', path=str(output), source=str(path),
                             next_action=derived['rebuild'], meaning='来源变化；尚未判断内容是否过时或可采纳'))
                 for coverage in derived.get('coverage', []):
-                    actual = {p.relative_to(base).as_posix() for p in _matches(base, coverage['pattern']) if p.is_file()}
+                    actual = {loc.relative(base, p).as_posix() for p in _matches(base, coverage['pattern']) if p.is_file()}
                     declared = set(coverage['included'])
                     if actual != declared:
                         review_required.append(dict(code='COVERAGE_CHANGED', path=str(output),

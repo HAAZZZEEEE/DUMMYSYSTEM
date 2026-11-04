@@ -5,6 +5,8 @@
 """
 from __future__ import annotations
 
+from dummysys_core import locations as loc
+
 import hashlib
 import json
 import os
@@ -64,8 +66,10 @@ def check_idle(resource):
 def check_paths(root, source, target):
     root, source, target = map(Path, (root, source, target))
     for path in (source, target):
-        if not path.resolve().is_relative_to(root.resolve()):
-            raise GovernanceError('PATH_OUTSIDE_ROOT', '迁移路径越界', path=str(path))
+        try:
+            safe_target(root, loc.relative(root, path))
+        except ValueError as error:
+            raise GovernanceError('PATH_OUTSIDE_ROOT', '迁移路径越界', path=str(path)) from error
         if any(p.is_symlink() or (hasattr(p, 'is_junction') and p.is_junction())
                for p in (path, *path.parents) if p != root.parent):
             raise GovernanceError('PATH_OUTSIDE_ROOT', '迁移路径包含目录链接', path=str(path))
@@ -79,7 +83,7 @@ def check_paths(root, source, target):
 class MigrationJournal:
     def __init__(self, root, operation_id):
         self.root = Path(root).resolve()
-        self.folder = self.root / 'runtime/state/workspace/operations' / operation_id
+        self.folder = loc.runtime(self.root) / 'state/workspace/operations' / operation_id
         self.path = self.folder / 'migration.json'
         self.data = {'schema_version': 1, 'stage': 'prepared', 'steps': [], 'operation_id': operation_id}
 
@@ -118,7 +122,7 @@ def plan_rename(root, kind, identity, new_title, reason, actor):
         new_name = f'{date_part}{new_title}'
         validate_dir_name(new_name)
         docs_old = records.project_docs(root, old_name)
-        res_old = Path(root) / 'runtime/project_src' / old_name
+        res_old = loc.runtime(Path(root)) / 'project_src' / old_name
         docs_new = docs_old.parent / new_name
         res_new = res_old.parent / new_name
         check_idle(res_old)
@@ -313,10 +317,10 @@ def plan_unarchive(root, kind, identity, reason, actor):
         if len(matches) != 1:
             raise GovernanceError('NOT_FOUND', '项目应唯一匹配', project=identity)
         name = matches[0]
-        docs = Path(root) / 'dmy_vault/30-项目/archive' / name
+        docs = loc.vault(Path(root)) / '30-项目/archive' / name
         if not docs.exists():
             raise GovernanceError('NOT_FOUND', '归档项目不存在', name=name)
-        target = Path(root) / 'dmy_vault/30-项目' / name
+        target = loc.vault(Path(root)) / '30-项目' / name
         check_same_volume(docs, target)
         return {
             'action': 'project.unarchive', 'kind': 'project_unarchive', 'name': name,
@@ -410,13 +414,13 @@ def dependency_snapshot(root, plan):
             for p in sorted(Path(resource_source).rglob('*.json'))
             if p.name in ('run.json', 'run-management.json', 'task.json', 'project.json')}
     snapshot['link_surface'] = digest(json.dumps(
-        [[p.relative_to(root).as_posix(), digest(payload(p))] for p in tracked_files(root)],
+        [[loc.relative(root, p).as_posix(), digest(payload(p))] for p in tracked_files(root)],
         ensure_ascii=False, default=str).encode())
     try:
         from . import _repositories as repos
         snapshot['repositories'] = repos.catalog(root)
         snapshot['repositories_digest'] = file_digest(
-            root / 'runtime/state/workspace/repositories.json')
+            loc.runtime(root) / 'state/workspace/repositories.json')
     except (ValueError, OSError):
         snapshot['repositories'] = {}
     return snapshot
@@ -475,7 +479,7 @@ def obsidian_move(root, source, target, executable=None):
     （newLinkFormat=absolute）、源已被索引、目标空缺；任一不满足即报错停止，
     不做普通文件移动兜底。
     """
-    vault = Path(root) / 'dmy_vault'
+    vault = loc.vault(Path(root))
     for path in (Path(source), Path(target)):
         if not path.resolve().is_relative_to(vault.resolve()):
             raise GovernanceError('PATH_OUTSIDE_ROOT', '迁移路径必须在 Vault 内', path=str(path))
@@ -506,12 +510,12 @@ def tracked_files(root):
     刻意不含原始产物、Run 记录与证据——历史事实不批量改写（见 resolve_legacy_path）。
     """
     root = Path(root)
-    vault = root / 'dmy_vault'
+    vault = loc.vault(root)
     files = [p for p in vault.rglob('*')
              if p.is_file() and '.obsidian' not in p.parts and p.suffix in LINKED_SUFFIXES]
     from ._paths import project_readmes
     for readme in project_readmes(root):
-        resource = root / 'runtime' / 'project_src' / readme.parent.name
+        resource = loc.runtime(root) / 'project_src' / readme.parent.name
         files += [p for p in (resource / 'README.md', resource / 'AGENTS.md', resource / 'project.json') if p.is_file()]
         files += list(resource.glob('*/task.json'))
         for task in resource.glob('[[]task *]*/'):
@@ -519,7 +523,7 @@ def tracked_files(root):
             # 项目内服务的当前配置会随资源根移动；历史 runs 与安装回执保持字节不变。
             files += list(task.glob('configs/**/*.json'))
             files += list(task.glob('state/*.json'))
-    registry = root / 'runtime' / 'state' / 'workspace' / REGISTRY_NAME
+    registry = loc.runtime(root) / 'state' / 'workspace' / REGISTRY_NAME
     if registry.exists():
         files.append(registry)
     return sorted(set(files))
@@ -534,7 +538,7 @@ def rewrite_external_links(root, moves):
     moves 是 [(source, target), ...]，docs 与 resource 两侧一起处理。
     """
     root = Path(root)
-    vault = root / 'dmy_vault'
+    vault = loc.vault(root)
     pairs = []
     in_vault = []
     for source, target in moves:
@@ -566,7 +570,7 @@ def link_snapshot(root, executable=None):
     identity 取 README frontmatter 的 project_id 或 task_id——这是「链接指向哪个
     对象」的权威依据，不能只看路径字符串。
     """
-    vault = Path(root) / 'dmy_vault'
+    vault = loc.vault(Path(root))
     # renameFile 后每文件缓存可以已更新，而 resolvedLinks/unresolvedLinks 仍旧；
     # isCacheClean 也不能证明引用解析已刷新。只重算派生缓存，不改正文。
     code = ("(()=>{const cache=app.metadataCache;"
@@ -656,7 +660,7 @@ def resolve_legacy_path(root, path, identity=None):
     不做「字符串替换到哪算哪」。
     """
     root = Path(root)
-    registry = root / 'runtime' / 'state' / 'workspace' / REGISTRY_NAME
+    registry = loc.runtime(root) / 'state' / 'workspace' / REGISTRY_NAME
     mappings = json.loads(registry.read_text(encoding='utf-8')) if registry.exists() else []
     current = str(path)
     seen = {current}
@@ -708,7 +712,7 @@ def _advance(root, pairs, journal, *, identity, finish, executable, mover, link_
     失衡。每次外部副作用前持久化意图、之后持久化可核对的结果。
     """
     root = Path(root)
-    vault = (root / 'dmy_vault').resolve()
+    vault = (loc.vault(root)).resolve()
     pairs = [(Path(s), Path(t)) for s, t in pairs]
     vault_pairs = [(s, t) for s, t in pairs if s.resolve().is_relative_to(vault)]
     side_pairs = [(s, t) for s, t in pairs if not s.resolve().is_relative_to(vault)]
@@ -767,7 +771,7 @@ def _advance(root, pairs, journal, *, identity, finish, executable, mover, link_
         journal.record('records_updated', {'intent': True})
         rewrite_external_links(root, pairs)
         finish()
-        registry = root / 'runtime' / 'state' / 'workspace' / REGISTRY_NAME
+        registry = loc.runtime(root) / 'state' / 'workspace' / REGISTRY_NAME
         mappings = json.loads(registry.read_text(encoding='utf-8')) if registry.exists() else []
         for src, dst in pairs:
             entry = {'source': str(src), 'target': str(dst), 'identity': identity,
@@ -815,7 +819,7 @@ def migrate(root, moves, finish, *, identity=None, operation_id=None, executable
     CAPABILITY_UNAVAILABLE，不静默跳过核验。
     """
     root = Path(root)
-    vault = (root / 'dmy_vault').resolve()
+    vault = (loc.vault(root)).resolve()
     pairs = [(Path(s), Path(t)) for s, t in moves]
     if not pairs:
         raise GovernanceError('INVALID_ARGUMENT', '没有要迁移的路径')

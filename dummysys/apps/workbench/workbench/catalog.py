@@ -6,6 +6,8 @@ web 模块不直接访问任意文件系统路径。项目发现只读取 runtim
 """
 from __future__ import annotations
 
+from dummysys_core import locations as loc
+
 import hashlib
 import json
 import ntpath
@@ -161,7 +163,7 @@ class Catalog:
         self.config = config
         self.navigation = NavigationRecords(CatalogError)
         self.workspace_root = Path(config["workspace_root"])
-        self.project_src = self.workspace_root / PROJECT_SRC
+        self.project_src = loc.resolve(self.workspace_root, PROJECT_SRC)
         self.snapshots = snapshot_store or SnapshotStore()
         self._repositories: dict[str, str] | None = None
         self._search_cache: dict | None = None
@@ -202,7 +204,7 @@ class Catalog:
             return None
         path = Path(str(raw))
         if not path.is_absolute():
-            path = self.workspace_root / path
+            path = loc.resolve(self.workspace_root, path)
         return path.resolve()
 
     @_synchronized
@@ -247,7 +249,7 @@ class Catalog:
                     "created": str(meta.get("created") or ''),
                     "deleted": deleted,
                     "docs_root": docs_root.as_posix(),
-                    "resource_root": (self.workspace_root / resource_raw.replace("\\", "/")).resolve().as_posix(),
+                    "resource_root": loc.resolve(self.workspace_root, resource_raw.replace("\\", "/")).resolve().as_posix(),
                 })
             except (CatalogError, OSError, ValueError) as error:
                 diagnostics.append({"project": name, "code": "PROJECT_META_ERROR", "message": str(error)})
@@ -262,7 +264,7 @@ class Catalog:
     def _load_repositories(self) -> dict[str, str]:
         if self._repositories is not None:
             return self._repositories
-        mapping_path = self.workspace_root / REPOSITORIES_JSON
+        mapping_path = loc.resolve(self.workspace_root, REPOSITORIES_JSON)
         result: dict[str, str] = {}
         if mapping_path.is_file():
             try:
@@ -295,15 +297,15 @@ class Catalog:
         if docs_root:
             roots.append({
                 "root_id": "docs", "kind": "docs", "label": "文档",
-                "path": docs_root.as_posix(), "_boundary": self.workspace_root.resolve().as_posix(),
+                "path": docs_root.as_posix(), "_boundary": loc.boundary(self.workspace_root, binding['docs_root']).as_posix(),
             })
         resource_raw = binding.get("resource_root")
         if not resource_raw:
             raise RootNotFound(f"项目缺少 resource_root：{binding.get('project_id')}")
-        resource_root = self.workspace_root / resource_raw.replace("\\", "/")
+        resource_root = loc.resolve(self.workspace_root, resource_raw.replace("\\", "/"))
         roots.append({
             "root_id": "resources", "kind": "resources", "label": "项目资源",
-            "path": resource_root.resolve().as_posix(), "_boundary": self.workspace_root.resolve().as_posix(),
+            "path": resource_root.resolve().as_posix(), "_boundary": loc.boundary(self.workspace_root, resource_raw).as_posix(),
         })
         for repo in binding.get("repositories") or []:
             repo_id = repo.get("repo_id") if isinstance(repo, dict) else None

@@ -1,4 +1,6 @@
 """只读分层健康检查；不可执行明确报告，不启动或恢复业务。"""
+
+from dummysys_core import locations as loc
 from datetime import datetime, timezone
 import json
 import os
@@ -14,7 +16,7 @@ from .doccheck import check_docs
 
 
 def workbench_state(root):
-    source=root/'runtime/workbench/source.json'
+    source=loc.runtime(root) / 'workbench/source.json'
     if not source.is_file(): return dict(status='unavailable',next_action='核对工作台源码入口登记')
     try:
         config_path=Path(json.loads(source.read_text(encoding='utf-8'))['config'])
@@ -61,7 +63,7 @@ def doctor(ws, full=False):
                  next_action='使用原发行 operation show 核对状态与恢复证据' if pending or pending_error else None)]
     registered=None
     actual_core=Path(core_workspace.__file__).resolve().parent
-    manifest=root/'runtime/state/workspace/cli-install.json'
+    manifest=loc.runtime(root) / 'state/workspace/cli-install.json'
     if manifest.is_file():
         try:
             value=json.loads(manifest.read_text(encoding='utf-8-sig'))
@@ -106,6 +108,7 @@ def doctor(ws, full=False):
     return dict(ok=all(c['status'] in ('passed','not_running') for c in checks),
                 checked_at=datetime.now(timezone.utc).isoformat(),full=full,checks=checks,
                 tool_version=__version__,python=sys.executable,workspace=str(root),registered=registered,
+                locations=loc.load(root).as_dict(),
                 pending_operations=checks[2]['pending'],
                 next_actions=[dict(check=c['name'],action=c['next_action']) for c in checks if c['status'] not in ('passed','not_running')],
                 coverage='本机 CLI、Operation'+('、当前文档、公共校验器与工作台健康；不验证桌面交互或远端' if full else '；完整检查使用 --full'))

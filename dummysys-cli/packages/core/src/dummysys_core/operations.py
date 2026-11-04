@@ -5,7 +5,9 @@
 """
 from __future__ import annotations
 
-from contextlib import contextmanager
+from dummysys_core import locations as loc
+
+from contextlib import contextmanager, nullcontext
 from contextvars import ContextVar
 import ctypes
 from ctypes import wintypes
@@ -38,6 +40,9 @@ def payload(path):
 
 
 def atomic_write(path, data):
+    if os.name == 'nt' and not str(path).startswith('\\\\?\\'):
+        absolute = str(path.resolve())
+        path = Path('\\\\?\\UNC\\' + absolute[2:] if absolute.startswith('\\\\') else '\\\\?\\' + absolute)
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(prefix='.dmy-', dir=path.parent)
     try:
@@ -76,7 +81,7 @@ _external = ContextVar('dmy_external_writer', default=False)
 
 
 @contextmanager
-def workspace_lock(root, timeout=15):
+def workspace_lock(root, timeout=15, *, snapshot_locations=True):
     key = os.path.normcase(str(Path(root).resolve()))
     if key in _held.get():
         yield
@@ -105,7 +110,8 @@ def workspace_lock(root, timeout=15):
         acquired = True
         token = _held.set(_held.get() | {key})
         try:
-            yield
+            with loc.snapshot(Path(root).resolve()) if snapshot_locations else nullcontext():
+                yield
         finally:
             _held.reset(token)
     finally:
@@ -119,10 +125,11 @@ def safe_target(root, relative):
     p = Path(relative)
     if p.is_absolute() or '..' in p.parts or ':' in str(relative):
         raise GovernanceError('PATH_OUTSIDE_ROOT', '操作路径必须在工作区内', path=str(relative))
-    target = root / p
-    if not target.resolve().is_relative_to(root):
-        raise GovernanceError('PATH_OUTSIDE_ROOT', '目录链接越出工作区', path=str(target))
-    if target.is_symlink() or (hasattr(target, 'is_junction') and target.is_junction()):
+    target = loc.resolve(root, p)
+    boundary = loc.boundary(root, p)
+    if not target.resolve().is_relative_to(boundary):
+        raise GovernanceError('PATH_OUTSIDE_ROOT', '目录链接越出资料根', path=str(target))
+    if any(loc._linked(part) for part in (target, *target.parents) if part.is_relative_to(boundary)):
         raise GovernanceError('PATH_OUTSIDE_ROOT', '受管文件不能为链接', path=str(target))
     return target
 
@@ -142,10 +149,10 @@ def inventory(root):
         elif base.is_file():
             paths.add(base)
     for relative in ('dmy_vault/30-项目', 'dmy_vault/10-系统/仓库'):
-        base = root / relative
+        base = loc.resolve(root, relative)
         if base.exists():
             paths.update(base.rglob('*.md'))
-    base = root / 'runtime/project_src'
+    base = loc.runtime(root) / 'project_src'
     if base.exists():
         for project in base.iterdir():
             if not project.is_dir():
@@ -161,14 +168,21 @@ def inventory(root):
                     paths.update(task.glob('runs/*/run.json'))
                     paths.update(task.glob('runs/*/run-management.json'))
     for name in ('repositories.json', 'retired-paths.json'):
-        path = root / 'runtime/state/workspace' / name
+        path = loc.runtime(root) / 'state/workspace' / name
         if path.exists():
             paths.add(path)
-    return {p.relative_to(root).as_posix(): safe_target(root, p.relative_to(root)).read_bytes()
+    return {loc.relative(root, p).as_posix(): safe_target(root, loc.relative(root, p)).read_bytes()
             for p in sorted(paths) if p.is_file()}
 
 
 def rebase_text(text, source, target):
+    source, target = Path(source), Path(target)
+    for old, new in ((loc.vault(source), loc.vault(target)), (loc.runtime(source), loc.runtime(target)), (source, target)):
+        text = _replace_root(text, old, new)
+    return text
+
+
+def _replace_root(text, source, target):
     for a, b in ((str(source), str(target)), (source.as_posix(), target.as_posix()),
                  (json.dumps(str(source), ensure_ascii=False)[1:-1], json.dumps(str(target), ensure_ascii=False)[1:-1]),
                  (json.dumps(str(source))[1:-1], json.dumps(str(target))[1:-1])):
@@ -179,10 +193,13 @@ def rebase_text(text, source, target):
 class Operations:
     def __init__(self, root):
         self.root = Path(root).resolve()
-        self.base = self.root / 'runtime/state/workspace/operations'
+
+    @property
+    def base(self):
+        return loc.runtime(self.root) / 'state/workspace/operations'
 
     def source_commit(self):
-        manifest = self.root / 'runtime/state/workspace/cli-install.json'
+        manifest = loc.runtime(self.root) / 'state/workspace/cli-install.json'
         if not manifest.exists():
             return 'development-unverified'
         installed = json.loads(manifest.read_text(encoding='utf-8-sig'))
@@ -201,6 +218,10 @@ class Operations:
             raise GovernanceError('INCOMPATIBLE_OPERATION','Operation 无法读取，请保留现场并核对原发行',path=str(path)) from error
         if not isinstance(value,dict) or value.get('schema_version') != 1 or value.get('workspace') != str(self.root):
             raise GovernanceError('INCOMPATIBLE_OPERATION', 'Operation 格式或工作区不匹配', path=str(path))
+        if value['status'] not in ('completed', 'aborted'):
+            expected = value.get('locations', loc.configured(self.root).as_dict())
+            if expected != loc.load(self.root).as_dict():
+                raise GovernanceError('INCOMPATIBLE_OPERATION', '资料位置已变化，恢复原配置后再恢复操作', path=str(path))
         return value
 
     def show(self, operation_id):
@@ -258,7 +279,7 @@ class Operations:
 
     def settle(self, include_archive=True, exclude_operation=None):
         if include_archive:
-            for path in (self.root / 'runtime/state/workspace/archive-migrations').glob('*/manifest.json'):
+            for path in (loc.runtime(self.root) / 'state/workspace/archive-migrations').glob('*/manifest.json'):
                 record = json.loads(path.read_text(encoding='utf-8'))
                 if record.get('status') in ('prepared', 'failed'):
                     raise GovernanceError('RECOVERY_REQUIRED', '归档迁移尚未恢复，请使用原归档工具的 rollback', journal=str(path.parent))
@@ -277,6 +298,8 @@ class Operations:
 
     @measured('commit')
     def _commit(self, folder, record, checkpoint=None):
+        if record.get('locations', loc.configured(self.root).as_dict()) != loc.load(self.root, fresh=True).as_dict():
+            raise GovernanceError('INCOMPATIBLE_OPERATION', '准备期间资料配置变化，保留现场并恢复原配置')
         # 先核对整个变更集，再逐文件提交。中断后允许目标等于 before 或 after。
         for entry in record['files']:
             target = safe_target(self.root, entry['path'])
@@ -353,7 +376,7 @@ class Operations:
                           source_commit=self.source_commit(), kind='migration',
                           operation_id=operation_id, request_id=request_id, fingerprint=fingerprint,
                           action=action, actor=actor, status='migrating', created_at=time.time(),
-                          files=[], plan=plan() if callable(plan) else plan, if_plan=if_plan)
+                          files=[], locations=loc.load(self.root).as_dict(), plan=plan() if callable(plan) else plan, if_plan=if_plan)
             save(folder / 'operation.json', record)
             if checkpoint:
                 checkpoint('preparing', 0)
@@ -395,20 +418,21 @@ class Operations:
             record = dict(schema_version=1, tool_version=__version__, workspace=str(self.root),
                           source_commit=self.source_commit(),
                           operation_id=operation_id, request_id=request_id, fingerprint=fingerprint,
-                          action=action, actor=actor, status='preparing', created_at=time.time(), files=[])
+                          action=action, actor=actor, status='preparing', created_at=time.time(), files=[],
+                          locations=loc.load(self.root).as_dict())
             save(folder / 'operation.json', record)
             if checkpoint:
                 checkpoint('preparing', 0)
             try:
                 before = inventory(self.root)
-                temp_root = self.root / 'runtime/tmp/dmy'
+                temp_root = loc.runtime(self.root) / 'tmp/dmy'
                 temp_root.mkdir(parents=True, exist_ok=True)
                 # 准备区再次嵌套完整工作区，会超过传统 MAX_PATH；仅文件 I/O
                 # 使用扩展路径。下方 rebase_text 在发布前还原正式工作区路径。
                 if os.name == 'nt' and not str(temp_root).startswith('\\\\?\\'):
                     value = str(temp_root.resolve())
                     temp_root = Path('\\\\?\\UNC\\' + value[2:] if value.startswith('\\\\') else '\\\\?\\' + value)
-                with tempfile.TemporaryDirectory(prefix='prepare-', dir=temp_root) as temporary:
+                with tempfile.TemporaryDirectory(prefix='prepare-', dir=temp_root) as temporary, loc.snapshot(Path(temporary)):
                     stage = Path(temporary)
                     (stage / 'dmy_vault').mkdir()
                     for relative, data in before.items():
@@ -416,9 +440,9 @@ class Operations:
                         path.parent.mkdir(parents=True, exist_ok=True)
                         path.write_bytes(data)
                     # 已有源码证据仅保留目录存在性，防止重建覆盖；不复制大型证据。
-                    for path in self.root.glob('runtime/project_src/*/[[]task *]*/runs/*/source-snapshot'):
+                    for path in loc.runtime(self.root).glob('project_src/*/[[]task *]*/runs/*/source-snapshot'):
                         if path.is_dir():
-                            (stage / path.relative_to(self.root)).mkdir(parents=True, exist_ok=True)
+                            (stage / loc.relative(self.root, path)).mkdir(parents=True, exist_ok=True)
                     # 空 runs 目录也属于结构契约。
                     for meta in stage.glob('runtime/project_src/*/[[]task *]*/task.json'):
                         (meta.parent / 'runs').mkdir(exist_ok=True)
@@ -431,7 +455,7 @@ class Operations:
                     for path in sorted(stage.rglob('*')):
                         relative = path.relative_to(stage).as_posix()
                         if path.is_dir():
-                            if not (self.root / relative).exists():
+                            if not loc.resolve(self.root, relative).exists():
                                 directories.append(relative)
                             continue
                         stage_files.add(relative)

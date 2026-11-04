@@ -2,6 +2,8 @@
 """刷新项目文档/资源双向入口；默认预演，--apply 写入，--check 验证。"""
 from __future__ import annotations
 
+from dummysys_core import locations as loc
+
 import argparse
 import re
 import sys
@@ -33,8 +35,8 @@ def expected(root: Path, name: str) -> dict[Path, str]:
     if name in {'.', '..'} or '/' in name or '\\' in name:
         raise ValueError('项目名称必须是单个目录名')
     docs = project_docs(root, name)
-    vault_project = docs.relative_to(root / 'dmy_vault').as_posix()
-    resource = root / 'runtime' / 'project_src' / name
+    vault_project = docs.relative_to(loc.vault(root)).as_posix()
+    resource = loc.runtime(root) / 'project_src' / name
     readme = docs / 'README.md'
     if not readme.is_file():
         raise ValueError(f'先按项目模板建立 README：{readme}')
@@ -70,7 +72,7 @@ def expected(root: Path, name: str) -> dict[Path, str]:
         rel = p.relative_to(docs)
         if p in (readme, index) or p.name == 'AGENTS.md':
             continue
-        target = p.relative_to(root / 'dmy_vault').with_suffix('').as_posix()
+        target = p.relative_to(loc.vault(root)).with_suffix('').as_posix()
         (archived_navigation if rel.parts[0] == 'archive' else complete).append(f'- [[{target}|{rel.as_posix()}]]')
     if archived_navigation:
         complete.extend(['', '### 已归档内容', '', *archived_navigation])
@@ -91,7 +93,7 @@ def expected(root: Path, name: str) -> dict[Path, str]:
         for child in sorted(p.parent.glob('*.md')):
             if child.name in {'README.md', 'AGENTS.md'}:
                 continue
-            target = child.relative_to(root / 'dmy_vault').with_suffix('').as_posix()
+            target = child.relative_to(loc.vault(root)).with_suffix('').as_posix()
             links.append(f'- [[{target}|{child.stem}]]')
         links.append(f'- [[{vault_project}/README|返回项目入口与资源目录]]')
         if p.parent in task_dirs(docs):

@@ -1,4 +1,6 @@
 """受限本机诊断事件；UUID 关联，默认不保存参数、正文和身份。"""
+
+from dummysys_core import locations as loc
 from datetime import datetime, timezone
 import json
 import os
@@ -24,7 +26,7 @@ def _read_event(path):
 
 
 def directory(root):
-    return Path(root) / 'runtime/logs/cli/diagnostics'
+    return loc.runtime(Path(root)) / 'logs/cli/diagnostics'
 
 
 def validate_id(value):
@@ -61,7 +63,7 @@ def save(root, *, diagnostic_id, trace_id, command, code, outcome, error_code,
                timestamp=datetime.now(timezone.utc).isoformat(), command=command, exit_code=code,
                outcome=outcome, error_code=error_code, duration_ms=duration_ms,
                source=source, stages=stages, operation_id=operation_id,
-               operation_record=str(Path(root)/'runtime/state/workspace/operations'/operation_id/'operation.json') if operation_id else None)
+               operation_record=str(loc.runtime(Path(root)) / 'state/workspace/operations'/operation_id/'operation.json') if operation_id else None)
     fd, temporary=tempfile.mkstemp(prefix='.event-', dir=folder)
     try:
         with os.fdopen(fd, 'w', encoding='utf-8') as stream:

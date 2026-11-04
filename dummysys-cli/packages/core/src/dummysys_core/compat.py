@@ -1,6 +1,8 @@
 """旧 Python 函数与命令兼容；所有写入进入共享协调协议。"""
 from __future__ import annotations
 
+from dummysys_core import locations as loc
+
 import argparse
 import inspect
 import os
@@ -14,7 +16,11 @@ from .workspace import Workspace
 
 def _root_for(path):
     path = Path(path).resolve()
-    return next(p for p in [path, *path.parents] if (p / 'dmy_vault').is_dir())
+    candidates = [p for p in (path, *path.parents) if (p / loc.CONFIG_NAME).is_file() or (p / 'dmy_vault').is_dir()]
+    if not candidates:
+        from .operations import GovernanceError
+        raise GovernanceError('CONFIG_REQUIRED', '外置资料必须显式提供 workspace，不能由文件父目录猜测')
+    return candidates[0]
 
 
 def _raw_call(function, root, *args, **kwargs):
@@ -39,22 +45,22 @@ def _wrap(function):
     return wrapped
 
 
-def write_json(path, value):
-    root = _root_for(path)
+def write_json(path, value, *, workspace=None):
+    root = Path(workspace).resolve() if workspace is not None else _root_for(path)
     with workspace_lock(root):
         if _external.get():
             return _records.write_json(path, value)
-        relative = Path(path).resolve().relative_to(root)
+        relative = loc.relative(root, Path(path).resolve())
         Operations(root).execute('legacy.write_json', {'path': str(relative), 'value': value},
             os.environ.get('CODEX_THREAD_ID', 'legacy'), lambda stage: _records.write_json(stage / relative, value))
 
 
-def set_properties(path, values):
-    root = _root_for(path)
+def set_properties(path, values, *, workspace=None):
+    root = Path(workspace).resolve() if workspace is not None else _root_for(path)
     with workspace_lock(root):
         if _external.get():
             return _records.set_properties(path, values)
-        relative = Path(path).resolve().relative_to(root)
+        relative = loc.relative(root, Path(path).resolve())
         Operations(root).execute('legacy.set_properties', {'path': str(relative), 'values': values},
             os.environ.get('CODEX_THREAD_ID', 'legacy'), lambda stage: _records.set_properties(stage / relative, values))
 

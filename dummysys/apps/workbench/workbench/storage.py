@@ -1,6 +1,8 @@
 """卷容量与项目大小后台统计，各自缓存和请求去重。"""
 from __future__ import annotations
 
+from dummysys_core import locations as loc
+
 import json
 import os
 import shutil
@@ -16,7 +18,7 @@ class StorageMonitor:
 
     def __init__(self, workspace: Path, *, probe=None, clock=time.monotonic, projects=None):
         self.workspace = Path(workspace)
-        self.path = self.workspace / 'runtime/state/workbench/storage.json'
+        self.path = loc.runtime(self.workspace) / 'state/workbench/storage.json'
         self._probe = probe or shutil.disk_usage
         self._clock = clock
         self._lock = threading.Lock()
@@ -38,7 +40,8 @@ class StorageMonitor:
                     and sample['total'] > 0 and sample['used'] + sample['free'] == sample['total']):
                 self._sample = sample
                 ranking = cached.get('ranking')
-                if (cached.get('scan_version') == 3 and isinstance(ranking, dict) and isinstance(ranking.get('top'), list)
+                if (cached.get('scan_version') == 4 and cached.get('locations') == loc.load(self.workspace).as_dict()
+                        and isinstance(ranking, dict) and isinstance(ranking.get('top'), list)
                         and isinstance(ranking.get('updated_at'), str)):
                     self._ranking = ranking
         except (OSError, ValueError, KeyError, TypeError):
@@ -76,7 +79,7 @@ class StorageMonitor:
         temporary = self.path.with_suffix('.tmp')
         temporary.write_text(json.dumps({'schema_version': 1, 'workspace': str(self.workspace),
                                           'sample': self._sample, 'ranking': self._ranking,
-                                          'scan_version': 3}), encoding='utf-8')
+                                          'scan_version': 4, 'locations': loc.load(self.workspace).as_dict()}), encoding='utf-8')
         os.replace(temporary, self.path)
 
     def _collect_projects(self):
@@ -85,16 +88,24 @@ class StorageMonitor:
             assignments = {}
             listing = self._projects()
             incomplete = bool(listing.get('diagnostics'))
+            locations = loc.load(self.workspace)
+            bases = [self.workspace.resolve(), locations.vault, locations.runtime]
+            scan_roots = [base for base in bases if not any(base != other and base.is_relative_to(other) for other in bases)]
             for project in listing['projects']:
                 root = Path(project['resource_root'])
-                if not root.resolve().is_relative_to(self.workspace.resolve()):
+                if not any(root.resolve().is_relative_to(base) for base in scan_roots):
                     incomplete = True
                     continue
                 row = {'project_id': project['project_id'], 'title': project['title'],
                        'bytes': 0, 'files': 0, 'partial': not root.is_dir()}
                 rows.append(row)
                 assignments[os.path.normcase(str(self._native_path(root)))] = row
-            total, files, skipped = self._directory_size(self.workspace, assignments)
+            total = files = skipped = 0
+            for base in scan_roots:
+                size, count, errors = self._directory_size(base, assignments)
+                total += size
+                files += count
+                skipped += errors
             incomplete = incomplete or bool(skipped) or any(row['partial'] for row in rows)
             rows.sort(key=lambda row: (-row['bytes'], row['title']))
             ranking = {'top': rows[:5], 'project_count': len(rows), 'incomplete': incomplete,

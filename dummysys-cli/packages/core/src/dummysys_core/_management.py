@@ -1,6 +1,8 @@
 """Run 管理 sidecar、删除标记和编号高水位。"""
 from __future__ import annotations
 
+from dummysys_core import locations as loc
+
 import json
 from pathlib import Path
 
@@ -72,7 +74,7 @@ def is_archived(props_or_sidecar):
 
 
 def high_watermark_path(root, project_name):
-    return Path(root) / 'runtime' / 'project_src' / project_name / 'project.json'
+    return loc.runtime(Path(root)) / 'project_src' / project_name / 'project.json'
 
 
 def ensure_high_watermark(root, project_name, docs, resources):

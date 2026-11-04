@@ -55,3 +55,7 @@ $dmy = "$workspace\runtime\state\cli\bin\dmy.cmd"
 Run 的 create 只登记计划，实际开始后 start，完成后以退出码、结果和证据 finish。初始化、普通记录和浏览无需 Obsidian；改名、移动、归档仍要求 Obsidian CLI、正确 Vault 与链接更新设置。缺少依赖时保留明确错误，普通文件移动不能替代链接迁移。
 
 开发验证在独立安装环境运行 CLI/core tests 与 Workbench tests；测试的临时目录、浏览器证据和缓存均通过 TMP、TEMP、WORKBENCH_TEST_OUTPUT 指向 runtime。包内检查器可用 `python -I -m dummysys_core.validation.layout --root <workspace> --json` 和 `dummysys_core.validation.vault` 单独执行。macOS 和真实资料迁移不属于本轮验证范围。
+
+## 资料位置
+
+Vault 与 runtime 可以独立配置。新工作区安装时可加 `--vault-root "正文" --runtime-root "E:\Records\Example"`；相对路径相对 `--workspace`，绝对路径可位于其他目录或磁盘。已有工作区由根 `.dummysys-workspace.json` 定位；安装参数不会搬移资料。完整规则见 [工作区与资料位置](docs/storage.md)。

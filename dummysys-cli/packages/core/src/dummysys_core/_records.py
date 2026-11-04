@@ -2,6 +2,8 @@
 """建立可读的 Task/Run 记录，检查身份、配对及声明范围；不执行作业或限制宿主权限。"""
 from __future__ import annotations
 
+from dummysys_core import locations as loc
+
 import argparse
 from datetime import datetime
 import json
@@ -66,10 +68,10 @@ def safe_name(name):
 def paired(root, name):
     safe_name(name)
     docs = project_docs(root, name)
-    resources = root / 'runtime/project_src' / name
+    resources = loc.runtime(root) / 'project_src' / name
     for path in (docs, resources):
-        if not path.resolve().is_relative_to(root.resolve()):
-            raise ValueError('项目路径越出工作区')
+        from .operations import safe_target
+        safe_target(root, loc.relative(root, path))
     return docs, resources
 
 
@@ -86,7 +88,7 @@ def initialize_project(root, name):
     binding = read_json(path) if path.exists() else {'schema_version': 1, 'project_id': project_id, 'repositories': []}
     if binding.get('project_id') != project_id:
         raise ValueError(f'项目配对身份冲突：{name}')
-    binding.update(docs_root=docs.relative_to(root).as_posix(), resource_root=resources.relative_to(root).as_posix())
+    binding.update(docs_root=loc.relative(root, docs).as_posix(), resource_root=loc.relative(root, resources).as_posix())
     write_json(path, binding)
     for task in task_dirs(docs):
         task_resource = resources / task.name
@@ -95,7 +97,7 @@ def initialize_project(root, name):
             meta = read_json(meta_path)
             if meta.get('task_id') != properties(task / 'README.md').get('task_id') or meta.get('project_id') != project_id:
                 raise ValueError(f'Task 配对身份冲突：{task.name}')
-            meta.update(docs_root=task.relative_to(root).as_posix(), resource_root=task_resource.relative_to(root).as_posix())
+            meta.update(docs_root=loc.relative(root, task).as_posix(), resource_root=loc.relative(root, task_resource).as_posix())
             write_json(meta_path, meta)
     return project_id
 
@@ -144,7 +146,7 @@ def create_task(root, project, title, origin, owner, goal, read_paths=(), write_
               'task_number': str(number), 'origin': origin, 'owner': owner, 'requires_acceptance': str(requires_acceptance).lower()}
     front = '\n'.join(f'{k}: {json.dumps(v, ensure_ascii=False)}' for k, v in values.items())
     doc.write_text(f'---\n{front}\n---\n\n# {title}\n\n来源：{"用户发起" if origin == "user" else "Agent 生成"}。\n\n## 目标与完成条件\n\n{goal}\n\n## 进展、产物与检查结果\n\n待记录；可链接已有权威报告。\n\n## 变更记录\n\n- {now()} 创建；负责者 `{owner}`。\n', encoding='utf-8')
-    write_json(resource / 'task.json', {'schema_version': 1, 'task_id': task_id, 'project_id': project_id, 'scope': scope, 'docs_root': doc.parent.relative_to(root).as_posix(), 'resource_root': resource.relative_to(root).as_posix()})
+    write_json(resource / 'task.json', {'schema_version': 1, 'task_id': task_id, 'project_id': project_id, 'scope': scope, 'docs_root': loc.relative(root, doc.parent).as_posix(), 'resource_root': loc.relative(root, resource).as_posix()})
     (resource / 'runs').mkdir(exist_ok=True)
     refresh(root, project)
     return {'task_id': task_id, 'document': str(doc), 'resources': str(resource)}
@@ -363,8 +365,8 @@ def create_project(root, title, created=None):
     if not re.fullmatch(r'\d{8}', date_part):
         raise ValueError('created 必须是 YYYY-MM-DD 格式')
     name = f'[{date_part}]{title}'
-    docs = root / 'dmy_vault/30-项目' / name
-    resources = root / 'runtime/project_src' / name
+    docs = loc.vault(root) / '30-项目' / name
+    resources = loc.runtime(root) / 'project_src' / name
     if docs.exists() or resources.exists():
         raise ValueError('项目目录名已占用')
     docs.mkdir(parents=True)
@@ -376,12 +378,12 @@ def create_project(root, title, created=None):
     front = '\n'.join(f'{k}: {json.dumps(v, ensure_ascii=False)}' for k, v in values.items())
     (docs / 'README.md').write_text(
         f'---\n{front}\n---\n\n# {title}\n\n## 文档与资源入口\n\n'
-        f'- 项目资源根：`{resources.relative_to(root).as_posix()}`。\n',
+        f'- 项目资源根：`{loc.relative(root, resources).as_posix()}`。\n',
         encoding='utf-8')
     write_json(resources / 'project.json', {
         'schema_version': 1, 'project_id': project_id,
-        'docs_root': docs.relative_to(root).as_posix(),
-        'resource_root': resources.relative_to(root).as_posix(),
+        'docs_root': loc.relative(root, docs).as_posix(),
+        'resource_root': loc.relative(root, resources).as_posix(),
         'repositories': [], 'task_number_high_watermark': 0,
     })
     return {'project_id': project_id, 'document': str(docs / 'README.md'), 'name': name}
@@ -526,7 +528,7 @@ def scope_report(scope, reads=(), writes=()):
 
 def resolve_evidence(root, value):
     path = Path(value)
-    registry = root / 'runtime/state/workspace/retired-paths.json'
+    registry = loc.runtime(root) / 'state/workspace/retired-paths.json'
     mappings = read_json(registry) if registry.exists() else []
     # 保留历史执行记录的原始路径，按最长前缀逐步解析已登记迁移。
     visited = set()
@@ -563,7 +565,7 @@ def check(root):
             pid = props.get('project_id')
             identity(pid, name)
             binding = read_json(resources / 'project.json')
-            if binding.get('project_id') != pid or binding.get('docs_root') != docs.relative_to(root).as_posix() or binding.get('resource_root') != resources.relative_to(root).as_posix():
+            if binding.get('project_id') != pid or binding.get('docs_root') != loc.relative(root, docs).as_posix() or binding.get('resource_root') != loc.relative(root, resources).as_posix():
                 failures.append(f'项目绑定不一致：{name}')
             for base in (docs, resources):
                 for child in base.iterdir():
@@ -594,7 +596,7 @@ def check(root):
                         failures.append(f'Task 配对身份不一致：{task_name}')
                     if task.get('project') != project_link(root, docs) or task.get('origin') not in {'user', 'agent'} or not task.get('owner') or task.get('status') not in TASK_STATUSES:
                         failures.append(f'Task 归属、来源、负责者或状态无效：{task_name}')
-                    if 'docs_root' in meta and (meta['docs_root'] != doc_paths[task_name].relative_to(root).as_posix() or meta.get('resource_root') != resource.relative_to(root).as_posix()):
+                    if 'docs_root' in meta and (meta['docs_root'] != loc.relative(root, doc_paths[task_name]).as_posix() or meta.get('resource_root') != loc.relative(root, resource).as_posix()):
                         failures.append(f'Task 路径绑定不一致：{task_name}')
                     if (doc_paths[task_name].parent.name == 'archive'
                             and task.get('status') not in {'completed', 'cancelled'}

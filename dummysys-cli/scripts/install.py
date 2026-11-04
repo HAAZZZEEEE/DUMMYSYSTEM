@@ -43,6 +43,8 @@ def main(argv=None):
     parser.add_argument("--workspace", type=Path, required=True)
     parser.add_argument("--wheels", type=Path, required=True)
     parser.add_argument("--release-id", required=True)
+    parser.add_argument("--vault-root", help="仅新工作区：Vault 位置，相对工作区或绝对路径")
+    parser.add_argument("--runtime-root", help="仅新工作区：runtime 位置，相对工作区或绝对路径")
     parser.add_argument("--evidence", type=Path, help="默认 runtime/state/cli/installations/<release-id>")
     parser.add_argument("--config", type=Path, help="默认 runtime/state/workspace/cli.json，必须在目标 runtime 内")
     args = parser.parse_args(argv)
@@ -55,16 +57,23 @@ def main(argv=None):
     root = args.workspace.resolve()
     wheels = args.wheels.resolve()
     packages = wheel_packages(wheels)
-    runtime = root / "runtime"
-    if not (root / "dmy_vault").is_dir():
+    # 路径契约来自待安装 core 包；无需原仓或现用安装。
+    sys.path.insert(0, str(packages[0]))
+    from dummysys_core import locations as loc
+    locations = loc.load(root)
+    if not locations.vault.is_dir():
         if root.exists() and (not root.is_dir() or any(root.iterdir())):
             raise ValueError("目标非空且尚未初始化，已保留原内容；选择新的空目录")
-        command = "import sys; sys.path[:0]=sys.argv[1:3]; from dummysys_cli.__main__ import main; raise SystemExit(main(['init','--workspace',sys.argv[3],'--json']))"
-        process = subprocess.run([sys.executable, "-I", "-B", "-c", command, str(packages[0]), str(packages[1]), str(root)], capture_output=True)
+        command = "import sys; sys.path[:0]=sys.argv[1:3]; from dummysys_cli.__main__ import main; raise SystemExit(main(['init','--workspace',sys.argv[3],'--vault-root',sys.argv[4],'--runtime-root',sys.argv[5],'--json']))"
+        process = subprocess.run([sys.executable, "-I", "-B", "-c", command, str(packages[0]), str(packages[1]), str(root), args.vault_root or 'dmy_vault', args.runtime_root or 'runtime'], capture_output=True)
         if process.returncode:
             sys.stdout.buffer.write(process.stdout)
             raise ValueError("工作区初始化失败；保留现场并查看 init.json")
-    init_record = root / "runtime/state/workspace/init.json"
+        locations = loc.load(root)
+    elif args.vault_root is not None or args.runtime_root is not None:
+        raise ValueError("已有工作区位置由 .dummysys-workspace.json 决定；安装参数不搬移既有资料")
+    runtime = locations.runtime
+    init_record = runtime / "state/workspace/init.json"
     if not init_record.is_file() or json.loads(init_record.read_text(encoding="utf-8")).get("status") != "completed":
         raise ValueError("目标未完成 dmy init；本安装器不迁移现用工作区")
     destination = contained(runtime / "envs" / args.release_id, runtime)
@@ -120,7 +129,9 @@ def main(argv=None):
         launcher = runtime / "state/cli/bin/dmy.cmd"
         # Keep batch source ASCII: cmd decodes literal Chinese paths using its code page.
         # %~dp0 expands the Unicode launcher location without guessing the caller's CWD.
-        atomic(launcher, '@echo off\nsetlocal DisableDelayedExpansion\n"%~dp0..\\..\\..\\envs\\' + args.release_id + '\\Scripts\\python.exe" -I -B -m dummysys_cli --workspace "%~dp0..\\..\\..\\.." %*\n')
+        # Python 入口以 Unicode 配置定位工作区，runtime 不必在工作区内。
+        atomic(launcher.with_suffix('.py'), 'import sys\nfrom dummysys_cli.__main__ import main\nraise SystemExit(main(["--config", ' + json.dumps(str(config)) + ', *sys.argv[1:]]))\n')
+        atomic(launcher, '@echo off\nsetlocal DisableDelayedExpansion\n"%~dp0..\\..\\..\\envs\\' + args.release_id + '\\Scripts\\python.exe" -I -B "%~dp0dmy.py" %*\n')
         wb_launch = runtime / "workbench/bin/workbench.cmd"
         atomic(wb_launch, '@echo off\nsetlocal DisableDelayedExpansion\n"%~dp0..\\..\\envs\\' + args.release_id + '\\Scripts\\python.exe" -I -B -m workbench %* --config "%~dp0..\\config.json"\n')
         atomic(runtime / "workbench/source.json", json.dumps(dict(schema_version=1, mode="wheel",

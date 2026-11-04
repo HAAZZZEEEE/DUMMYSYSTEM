@@ -40,7 +40,9 @@ def build_parser():
             argument(child, 'full', action='store_true', help='汇总治理、文档和本机工作台检查')
         else:
             argument(child, 'docs', action='store_true', help='仅检查当前文档与生成式参考')
-    groups.add_parser('init', help='在显式 --workspace 空目录创建工作区；非空拒绝')
+    init = groups.add_parser('init', help='在显式 --workspace 空目录创建工作区；非空拒绝')
+    argument(init, 'vault_root', default='dmy_vault', help='Vault 位置；相对工作区或绝对路径')
+    argument(init, 'runtime_root', default='runtime', help='runtime 位置；相对工作区或绝对路径')
     context = groups.add_parser('context', help='查询 Task 字段与阅读入口，不自动注入会话')
     argument(context, 'task', required=True)
     argument(context, 'section', choices=('all','reading','repositories','summary'), default='all', help='限定返回范围')

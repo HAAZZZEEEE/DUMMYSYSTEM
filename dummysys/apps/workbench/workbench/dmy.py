@@ -14,6 +14,8 @@
 """
 from __future__ import annotations
 
+from dummysys_core import locations as loc
+
 import json
 import os
 import subprocess
@@ -89,7 +91,7 @@ def capabilities(workspace: Path | str, *, runner=None) -> dict | None:
     """同工作区与执行来源复用能力；安装标记变化立即失效，最长缓存 30 秒。"""
     workspace=Path(workspace).resolve()
     command, source=resolve_command(workspace)
-    paths=[workspace/'runtime/state/workspace/cli-install.json', Path(command[0])]
+    paths=[loc.runtime(workspace) / 'state/workspace/cli-install.json', Path(command[0])]
     if source == 'registered':
         try:
             manifest=json.loads(paths[0].read_text(encoding='utf-8-sig'))
@@ -201,7 +203,7 @@ def resolve_command(workspace: Path | str) -> tuple[list[str], str]:
     override = os.environ.get('DMY_EXE', '').strip()
     if override:
         return override.split(), 'env'
-    manifest = Path(workspace) / 'runtime' / 'state' / 'workspace' / 'cli-install.json'
+    manifest = loc.runtime(workspace) / 'state' / 'workspace' / 'cli-install.json'
     if manifest.is_file():
         try:
             installed = json.loads(manifest.read_text(encoding='utf-8-sig'))
@@ -217,7 +219,7 @@ def describe_cli(workspace: Path | str) -> dict:
     """供设置/诊断展示：实际会用哪份 CLI。"""
     command, source = resolve_command(workspace)
     registered = None
-    manifest = Path(workspace) / 'runtime' / 'state' / 'workspace' / 'cli-install.json'
+    manifest = loc.runtime(workspace) / 'state' / 'workspace' / 'cli-install.json'
     if manifest.is_file():
         try:
             installed = json.loads(manifest.read_text(encoding='utf-8-sig'))

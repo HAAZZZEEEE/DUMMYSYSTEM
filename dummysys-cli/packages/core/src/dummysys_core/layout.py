@@ -1,4 +1,6 @@
 """治理资料的唯一定位契约；项目身份不随显示目录名变化。"""
+
+from dummysys_core import locations as loc
 import json
 from pathlib import Path
 
@@ -25,7 +27,7 @@ def governance_paths(root):
     from ._records import properties
     # 保留调用方的路径拼写；Windows 8.3 别名与长路径不能混用于 relative_to。
     root = Path(root)
-    vault = root / 'dmy_vault'
+    vault = loc.vault(root)
     result = {key: vault / value for key, value in LEGACY.items()}
     declared = manifest(root).get('governance')
     if declared is not None:
@@ -39,7 +41,7 @@ def governance_paths(root):
             raise GovernanceError('INVALID_CONFIG', '治理所属 Project 身份必须唯一', project=declared['project_id'])
         for key in sections:
             target = matches[0] / DESTINATIONS[key]
-            safe_target(root, target.relative_to(root))
+            safe_target(root, loc.relative(root, target))
             if not target.is_dir() or (vault / LEGACY[key]).exists():
                 raise GovernanceError('INVALID_CONFIG', '治理目录缺失或新旧入口并存', path=str(target))
             result[key] = target
@@ -53,5 +55,5 @@ def governance_paths(root):
 
 
 def wiki(root, path, label=None):
-    target = Path(path).relative_to(Path(root) / 'dmy_vault').with_suffix('').as_posix()
+    target = Path(path).relative_to(loc.vault(Path(root))).with_suffix('').as_posix()
     return '[[' + target + ('|' + label if label else '') + ']]'

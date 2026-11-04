@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from dummysys_core import locations as loc
+
 from collections import defaultdict
 from datetime import date
 from pathlib import Path, PurePosixPath
@@ -246,7 +248,7 @@ def _strings(value: object):
 
 
 def validate(root: Path, *, unavailable=None) -> list[str]:
-    vault = root / "dmy_vault"
+    vault = loc.vault(root)
     if not vault.is_dir():
         return ['缺少 dmy_vault 目录，未执行 Vault 检查']
     failures: list[str] = []
@@ -367,7 +369,7 @@ def validate(root: Path, *, unavailable=None) -> list[str]:
             # 工作区外仓库链接由其仓库维护；本工作区资源入口在此核验实际可达性。
             if re.match(r'^[A-Za-z]:[/\\]', value) or value.startswith('/'):
                 local = Path(value)
-                if local.resolve().is_relative_to(root.resolve()) and not local.exists():
+                if any(local.resolve().is_relative_to(base) for base in (root.resolve(), loc.vault(root), loc.runtime(root))) and not local.exists():
                     failures.append(f'{source}: 工作区资源链接无法解析：{value}')
                 continue
             target = _markdown_target(source, raw)

@@ -1,4 +1,6 @@
 """本机命令计数；只保存命令名和聚合结果，不保存调用参数。"""
+
+from dummysys_core import locations as loc
 from datetime import datetime, timedelta, timezone
 from contextlib import closing
 from pathlib import Path
@@ -18,7 +20,7 @@ def classify(code, error_code=None):
 
 
 def database(root):
-    return Path(root) / 'runtime/state/cli/usage.sqlite3'
+    return loc.runtime(Path(root)) / 'state/cli/usage.sqlite3'
 
 
 def record(root, command, code, *, duration_ms=None, error_code=None, source='cli'):

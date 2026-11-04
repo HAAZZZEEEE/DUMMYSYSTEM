@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from dummysys_core import locations as loc
+
 from pathlib import Path
 import sys
 import argparse
@@ -38,16 +40,18 @@ SKIP_DIRECTORIES = {".git", ".obsidian", "runtime", ".cac", "__pycache__"}
 
 def workspace_files(root: Path):
     """先剪枝再读文件，不进入机器环境或目录链接。"""
-    for directory, dirs, files in os.walk(root, followlinks=False):
-        dirs[:] = [name for name in dirs if name not in SKIP_DIRECTORIES
-                   and not (Path(directory) / name).is_symlink()
-                   and not (hasattr(Path(directory) / name, 'is_junction') and (Path(directory) / name).is_junction())]
-        for name in files:
-            yield Path(directory) / name
+    locations = loc.load(root)
+    for base in (root, locations.vault):
+        for directory, dirs, files in os.walk(base, followlinks=False):
+            dirs[:] = [name for name in dirs if name not in SKIP_DIRECTORIES
+                       and Path(directory) / name not in (locations.vault, locations.runtime)
+                       and not loc._linked(Path(directory) / name)]
+            for name in files:
+                yield Path(directory) / name
 
 
 def validate_runtime(root: Path) -> list[str]:
-    runtime = root / 'runtime'
+    runtime = loc.runtime(root)
     if not runtime.exists():
         return []
     failures = []
@@ -58,8 +62,8 @@ def validate_runtime(root: Path) -> list[str]:
             entries = json.loads(registry.read_text(encoding='utf-8'))
             for entry in entries:
                 source, target = Path(entry['source']), Path(entry['target'])
-                source.relative_to(root)
-                target.relative_to(root)
+                loc.relative(root, source)
+                loc.relative(root, target)
                 allowed.add(source)
                 if not source.exists() or not target.exists():
                     failures.append(f'兼容入口失效：{source}')
@@ -107,7 +111,7 @@ def validate_runtime(root: Path) -> list[str]:
 
 
 def validate(root: Path) -> list[str]:
-    vault = root / "dmy_vault"
+    vault = loc.vault(root)
     failures: list[str] = []
     from dummysys_core.layout import governance_paths
     try:
@@ -121,7 +125,7 @@ def validate(root: Path) -> list[str]:
     for path in workspace_files(root):
         if not path.is_file() and not path.is_symlink():
             continue
-        relative = path.relative_to(root)
+        relative = loc.relative(root, path)
         if any(part in SKIP_DIRECTORIES for part in relative.parts):
             continue
         in_vault = relative.parts and relative.parts[0] == "dmy_vault"
@@ -141,8 +145,8 @@ def validate(root: Path) -> list[str]:
                     same_file = path.samefile(canonical_agents)
                 except OSError:
                     same_file = False
-                if not same_file:
-                    failures.append("AGENTS.md 不是指向知识库权威文档的同文件链接")
+                if not same_file and path.read_text(encoding='utf-8') != loc.entry_pointer(root, canonical_agents):
+                    failures.append("AGENTS.md 不是知识库权威文档的同文件链接或跨卷导航入口")
             elif relative.parts[0] == 'tools' and path.name in {'README.md', 'AGENTS.md'}:
                 pass
             else:
@@ -152,7 +156,7 @@ def validate(root: Path) -> list[str]:
         for name in list(dirs):
             path = Path(directory) / name
             if (hasattr(path, 'is_junction') and path.is_junction()) or path.is_symlink():
-                failures.append(f'Vault 中出现目录链接：{path.relative_to(root)}')
+                failures.append(f'Vault 中出现目录链接：{loc.relative(root, path)}')
                 dirs.remove(name)
             elif name == '.obsidian':
                 dirs.remove(name)
@@ -168,7 +172,7 @@ def main(argv=None) -> int:
     parser.add_argument('--json',action='store_true',help='输出结构化检查结果')
     args=parser.parse_args(argv)
     root = args.root.resolve()
-    vault = root / "dmy_vault"
+    vault = loc.vault(root)
     failures = validate(root)
     if args.json:
         print(json.dumps(dict(schema_version=1,ok=not failures,failures=failures,workspace=str(root)),ensure_ascii=False))
