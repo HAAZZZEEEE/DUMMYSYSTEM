@@ -27,6 +27,55 @@ export function fatal(error) {
   $('bootstrap').append(heading, message, retry);
 }
 export function createView(nav, session, actions, tree, navPanel, preview) {
+  const rootTabs = $('root-tabs');
+  const rootStrip = $('root-tab-strip');
+  const previousTabs = $('root-tabs-prev');
+  const nextTabs = $('root-tabs-next');
+  let tabLocation;
+  let tabLayoutFrame;
+  let tabScrollLeft = 0;
+  let tabStripWidth = rootStrip.clientWidth;
+  previousTabs.append(icon('chevron'));
+  nextTabs.append(icon('chevron'));
+  function updateTabOverflow() {
+    // 以整条可用宽度判断，避免按钮显隐改变滚动区宽度后反复抖动。
+    const overflow = rootTabs.scrollWidth > rootStrip.clientWidth + 1;
+    previousTabs.classList.toggle('hidden', !overflow);
+    nextTabs.classList.toggle('hidden', !overflow);
+    previousTabs.disabled = !overflow || rootTabs.scrollLeft <= 1;
+    nextTabs.disabled = !overflow || rootTabs.scrollLeft + rootTabs.clientWidth >= rootTabs.scrollWidth - 1;
+  }
+  function revealTab(tab) {
+    if (!tab) return;
+    const viewport = rootTabs.getBoundingClientRect();
+    const item = tab.getBoundingClientRect();
+    // 只移动选项卡滚动容器，避免 scrollIntoView 带动页面和内容区。
+    if (item.left < viewport.left) rootTabs.scrollLeft -= viewport.left - item.left;
+    else if (item.right > viewport.right) rootTabs.scrollLeft += item.right - viewport.right;
+  }
+  function layoutTabs(reveal) {
+    updateTabOverflow();
+    if (reveal) revealTab(rootTabs.querySelector('[role="tab"][aria-selected="true"]'));
+    updateTabOverflow();
+  }
+  for (const [button, direction] of [[previousTabs, -1], [nextTabs, 1]]) {
+    button.onclick = () => {
+      rootTabs.scrollLeft += direction * Math.max(1, rootTabs.clientWidth * 0.8);
+      updateTabOverflow();
+    };
+  }
+  rootTabs.addEventListener('scroll', updateTabOverflow, { passive: true });
+  rootTabs.addEventListener('focusin', (event) => {
+    if (event.target.matches('.root-tab')) { revealTab(event.target); updateTabOverflow(); }
+  });
+  const tabResizeObserver = new ResizeObserver(() => {
+    // 加载中暂时清空根列表只改变高度，不应把用户的滚动位置拉回当前项。
+    if (rootStrip.clientWidth === tabStripWidth) return;
+    tabStripWidth = rootStrip.clientWidth;
+    cancelAnimationFrame(tabLayoutFrame);
+    tabLayoutFrame = requestAnimationFrame(() => layoutTabs(true));
+  });
+  tabResizeObserver.observe(rootStrip);
   let projects = [];
   let deletedProjects = [];
   let diagnostics = [];
@@ -107,15 +156,23 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
     const project = [...projects, ...deletedProjects].find((item) => item.project_id === value?.project_id);
     $('project-title').textContent = project?.title || value?.project_id || 'DUMMYSYS 首页';
     $('project-title').classList.toggle('idle', !value);
+    if (rootTabs.childElementCount) tabScrollLeft = rootTabs.scrollLeft;
+    const scrollLeft = tabScrollLeft;
+    const focusedRoot = rootTabs.contains(document.activeElement) ? document.activeElement.dataset.rootId : null;
+    const nextTabLocation = JSON.stringify([value?.project_id, value?.root_id]);
+    const changedTab = nextTabLocation !== tabLocation;
     $('root-tabs').replaceChildren();
     $('root-tabs').setAttribute('role', 'tablist');
     const tabs = state.homepage ? [{ root_id: 'homepage', label: '首页' }, ...state.roots] : state.roots;
+    if (tabs.length || !value) tabLocation = nextTabLocation;
     for (const root of tabs) {
       const rootTarget = nav.rootTarget(root.root_id);
       const tab = mark(document.createElement('button'), 'root-tab', rootTarget);
       const selected = root.root_id === value.root_id;
       tab.className = `root-tab${selected ? ' active' : ''}`;
       tab.textContent = root.label;
+      tab.title = root.label;
+      tab.dataset.rootId = root.root_id;
       tab.setAttribute('role', 'tab');
       tab.setAttribute('aria-selected', String(selected));
       tab.setAttribute('aria-label', root.root_id === 'homepage' ? '项目首页' : `根目录：${root.label}`);
@@ -131,6 +188,11 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
       };
       $('root-tabs').append(tab);
     }
+    rootTabs.scrollLeft = scrollLeft;
+    const focusedTab = [...rootTabs.children].find((tab) => tab.dataset.rootId === focusedRoot);
+    focusedTab?.focus({ preventScroll: true });
+    layoutTabs(changedTab);
+    if (focusedTab) { revealTab(focusedTab); updateTabOverflow(); }
     $('crumbs').replaceChildren();
     $('crumb-bar').classList.toggle('hidden', !value || home);
     if (value) {

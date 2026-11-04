@@ -9,3 +9,5 @@
 浏览器测试使用 tests/browser/browser_fixture.py 与 Playwright，WORKBENCH_TEST_OUTPUT、TMP、TEMP 显式指向 runtime。记录实际导入路径、测试模块和退出码。
 
 CLI/core 投影与 Workbench 必须配套安装。应用缺失、配置位置与安装来源需要覆盖。替身只证明派发参数；真实资源管理器、桌面窗口、Obsidian 链接迁移各自记录实测范围。浏览器服务通过不代表原生桌面或 macOS 通过。
+
+多仓库与长名称根选项卡使用 tests/browser/test_root_tabs.py：验证单行限宽、省略和标题、独立横向滚动、边缘按钮、键盘选择、窗口尺寸变化及刷新保留滚动位置；同时回归 test_root_context.py 与 test_history.py。自动化夹具的 RecordingOpener 不替代真实应用打开验证。

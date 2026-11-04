@@ -67,7 +67,11 @@
           <button id="btn-open-explorer" class="btn ghost" aria-label="在资源管理器中打开当前目录" title="在资源管理器中打开当前目录">资源管理器</button>
         </div>
       </div>
-      <nav id="root-tabs" class="root-tabs" aria-label="内容区切换"></nav>
+      <div id="root-tab-strip" class="root-tab-strip">
+        <button id="root-tabs-prev" class="btn ghost root-tab-scroll hidden" aria-label="向左滚动选项卡" title="向左滚动选项卡" aria-controls="root-tabs" disabled></button>
+        <nav id="root-tabs" class="root-tabs" aria-label="内容区切换"></nav>
+        <button id="root-tabs-next" class="btn ghost root-tab-scroll hidden" aria-label="向右滚动选项卡" title="向右滚动选项卡" aria-controls="root-tabs" disabled></button>
+      </div>
       <div id="crumb-bar" class="crumb-bar hidden">
         <nav id="crumbs" class="crumbs" aria-label="面包屑"></nav>
       </div>

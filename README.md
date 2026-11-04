@@ -6,11 +6,13 @@ DUMMYSYS 是面向 Agent 辅助工作的本地文件组织与工作记录工具�
 
 本候选保留两个来源目录：`dummysys/apps/workbench` 是浏览器 Workbench；`dummysys-cli/apps/cli` 与 `dummysys-cli/packages/core` 是 CLI 和共享规则。默认提供完整工作流，文件和 CLI/JSON 可独立使用。
 
+两个目录现在由一个 Git 仓库管理，作为后续通用实现的开发主线。个人配置与资料仍在外部工作区；现用安装的切换单独安排。见 [开发主线与维护方式](docs/development.md)。
+
 ## 使用与维护边界
 
 这个实现从作者的个人工作流长出，后续迭代继续服务该工作流。计划分享方法论与代码，不承诺面向使用者的升级迁移、版本兼容或稳定性维护；使用者负责自己的部署、备份和数据。
 
-当前为第一轮脱敏与独立运行候选，Windows 浏览器工作流是本轮验证目标。项目许可证尚未确定，尚未公开发布；第三方资源声明见 [THIRD_PARTY.md](THIRD_PARTY.md)。macOS、现用资料迁移、跨设备同步、最终仓库组织后续处理。
+当前为脱敏与独立运行候选，Windows 浏览器工作流是已验证范围。项目许可证尚未确定，尚未公开发布；第三方资源声明见 [THIRD_PARTY.md](THIRD_PARTY.md)。Windows/macOS 各自独立运行、资料离线导入互通属于后续设计目标，本阶段不要求 macOS 实测。两机通信、自动同步与同时写入不在当前范围，见 [双平台与数据互通](docs/platform-and-data.md)。
 
 安装与验证见 [INSTALL.md](INSTALL.md)。初始化生成独立工作区，候选代码目录只保存源码、测试、构建声明和通用说明。
 
