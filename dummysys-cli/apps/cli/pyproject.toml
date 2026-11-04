@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dummysys-cli"
+version = "0.3.1"
+requires-python = ">=3.11"
+description = "DUMMYSYS 本机治理"
+dependencies = ["dummysys-core==0.3.1"]
+
+[project.scripts]
+dmy = "dummysys_cli.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

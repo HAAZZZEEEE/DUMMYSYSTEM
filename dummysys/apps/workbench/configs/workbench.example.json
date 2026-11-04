@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "workspace_root": "../..",
+  "task_root": ".",
+  "port": 0,
+  "apps": {}
+}

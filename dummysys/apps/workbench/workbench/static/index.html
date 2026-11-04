@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DUMMYSYS 工作台</title>
+<link rel="icon" type="image/svg+xml" href="/icons/app-icon.svg">
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/overview.css">
+</head>
+<body>
+<div id="bootstrap" class="bootstrap">
+  <h1>DUMMYSYS 工作台</h1>
+  <p>正在建立本机安全会话…</p>
+</div>
+
+<div id="app" class="app hidden">
+  <!-- 左侧：项目导航 -->
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-header">
+      <div class="brand">DUMMYSYS 工作台</div>
+      <div id="quick-wrap" class="quick-wrap">
+        <input id="project-search" data-testid="project-search" aria-label="快速跳转" type="search" role="combobox" aria-controls="quick-popover" aria-expanded="false" placeholder="快速跳转：项目、固定或最近…" autocomplete="off">
+        <div id="quick-popover" class="quick-popover" role="listbox" aria-label="快速跳转结果">
+          <div id="quick-results" class="quick-results"></div>
+        </div>
+      </div>
+      <div class="sidebar-controls">
+        <button id="btn-home" data-testid="home" class="icon-btn" title="回到首页" aria-label="回到首页"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></button>
+        <button id="btn-project-refresh" data-testid="refresh-projects" class="icon-btn" aria-label="刷新项目目录">↻</button>
+        <button id="btn-settings" data-testid="settings-button" class="icon-btn" title="设置" aria-label="设置" aria-haspopup="dialog" aria-expanded="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m10 3-.7 2.3-2.1 1.2-2.4-.5-2 3.5 1.7 1.8v2.4L2.8 15l2 3.5 2.4-.5 2.1 1.2L10 21h4l.7-2.3 2.1-1.2 2.4.5 2-3.5-1.7-1.8v-2.4l1.7-1.8-2-3.5-2.4.5-2.1-1.2L14 3Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+      </div>
+    </div>
+    <nav id="sidebar-scroll" class="sidebar-scroll" aria-label="项目列表">
+      <section class="side-group">
+        <div class="list-caption">常用</div>
+        <nav id="pinned-projects" class="project-list"></nav>
+      </section>
+      <section class="side-group">
+        <div class="list-caption">其他项目</div>
+        <nav id="other-projects" class="project-list"></nav>
+      </section>
+      <div id="project-diagnostics" class="diagnostics hidden"></div>
+    </nav>
+  </aside>
+
+  <div id="sidebar-resizer" data-testid="sidebar-resizer" class="sidebar-resizer" role="separator" aria-orientation="vertical" aria-label="调整导航栏宽度" aria-controls="sidebar" aria-valuemin="200" aria-valuemax="640" tabindex="0" title="拖动调整导航栏宽度，双击恢复默认"></div>
+
+  <!-- 右侧：固定工作区 -->
+  <main class="content">
+    <header class="workspace-header">
+      <div class="workspace-title-row">
+        <h1 id="project-title" class="project-title">选择一个项目</h1>
+        <div id="search-wrap" class="search-wrap">
+          <input id="global-search" data-testid="global-search" aria-label="全局搜索" type="search" role="combobox" aria-controls="search-popover" aria-expanded="false" placeholder="搜索项目、任务、运行或文件…" autocomplete="off">
+          <div id="search-popover" class="search-popover" role="listbox" aria-label="搜索结果">
+            <div id="search-filters" class="search-filters" role="group" aria-label="搜索类型过滤"></div>
+            <div id="search-results" class="search-results"></div>
+          </div>
+        </div>
+        <div class="workspace-actions">
+          <button id="btn-quick-switch" class="icon-btn" title="快速跳转 (Ctrl+K)" aria-label="快速跳转" aria-haspopup="dialog" aria-expanded="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></button>
+          <button id="btn-back" data-testid="history-back" class="icon-btn" aria-label="返回上一位置" title="返回上一位置">←</button>
+          <button id="btn-up" data-testid="directory-up" class="icon-btn" title="上级目录" aria-label="上级目录">↑</button>
+          <button id="btn-refresh" data-testid="directory-refresh" class="icon-btn" title="刷新" aria-label="刷新当前目录">↻</button>
+          <button id="btn-open-vscode" class="btn ghost" aria-label="用 VS Code 打开当前目录" title="用 VS Code 打开当前目录">VS Code</button>
+          <button id="btn-open-explorer" class="btn ghost" aria-label="在资源管理器中打开当前目录" title="在资源管理器中打开当前目录">资源管理器</button>
+        </div>
+      </div>
+      <nav id="root-tabs" class="root-tabs" aria-label="内容区切换"></nav>
+      <div id="crumb-bar" class="crumb-bar hidden">
+        <nav id="crumbs" class="crumbs" aria-label="面包屑"></nav>
+      </div>
+    </header>
+
+    <section class="main-pane">
+      <!-- 项目工具栏（上下文工具栏 / Contextual Toolbar）：作用于当前选中项目的主操作。
+           仅在选中项目后显示；作用域恒为当前项目，不提供项目切换。 -->
+      <div id="project-toolbar" class="project-toolbar hidden" data-testid="project-toolbar" role="toolbar" aria-label="项目工具栏"></div>
+      <div class="pane-toolbar hidden" id="pane-toolbar">
+        <input id="dir-filter" data-testid="directory-filter" aria-label="筛选当前目录" type="search" placeholder="筛选当前目录文件名…" autocomplete="off">
+        <div class="directory-location" role="group" aria-label="当前目录路径">
+          <span id="dir-summary" class="dir-summary" role="status" aria-live="polite"></span>
+          <button id="btn-copy-directory" data-testid="copy-directory" class="icon-btn copy-location" aria-label="复制当前目录完整路径" title="复制完整路径">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>
+          </button>
+          <button id="btn-pin-directory" class="icon-btn" title="固定当前目录" aria-label="固定当前目录" disabled><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 3h8l-1 6 3 4v2H6v-2l3-4ZM12 15v6"/></svg></button>
+        </div>
+        <button id="btn-preview-toggle" data-testid="preview-toggle" class="btn ghost" aria-label="显示文件预览" aria-pressed="true" aria-controls="preview-pane preview-resizer" title="关闭预览栏">预览</button>
+      </div>
+
+      <!-- 工作区首页：系统沙盘与原有固定/最近入口 -->
+      <section id="empty-state" class="workspace-overview" aria-label="DUMMYSYS 首页">
+        <div id="overview"></div>
+        <div id="quick-home" class="quick-access"></div>
+      </section>
+
+      <section id="project-homepage" class="project-homepage hidden" aria-label="项目首页内容"></section>
+
+      <!-- 主区双栏：左文件列表 + 右文本预览 -->
+      <div id="main-split" class="main-split">
+        <div class="split-list">
+          <!-- 目录列表 -->
+          <section id="dir-view" data-testid="directory-view" aria-label="目录内容" class="dir-view hidden">
+            <table class="entries">
+              <thead><tr><th>名称</th><th>类型</th><th>修改时间</th><th class="col-act"></th></tr></thead>
+              <tbody id="entries-body"></tbody>
+            </table>
+            <div id="pager" class="pager hidden"><button id="btn-more" data-testid="directory-more" class="btn ghost" aria-label="加载更多目录条目">加载更多</button></div>
+          </section>
+
+          <!-- 内联可恢复错误 -->
+          <section id="error-view" class="error-view hidden" role="alert">
+            <div class="error-inner">
+              <h3 id="error-title"></h3>
+              <p id="error-message"></p>
+              <div class="error-actions">
+                <button id="error-copy" class="btn ghost">复制路径</button>
+                <button id="error-history-back" data-testid="error-history-back" class="btn ghost">返回上一位置</button>
+                <button id="error-back" data-testid="error-up" class="btn ghost">返回上级</button>
+                <button id="error-retry" data-testid="error-retry" class="btn primary">重试</button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div id="preview-resizer" data-testid="preview-resizer" class="preview-resizer" role="separator" aria-orientation="vertical" aria-label="调整预览栏宽度" aria-controls="preview-pane" aria-valuemin="240" aria-valuemax="800" tabindex="0" title="拖动调整预览栏宽度，双击恢复默认"></div>
+
+        <aside id="preview-pane" data-testid="preview-pane" class="preview-pane" aria-label="文件预览" data-state="empty">
+          <header class="preview-header">
+            <h2 id="preview-title" class="preview-title">预览</h2>
+          </header>
+          <div id="preview-body" class="preview-body"></div>
+        </aside>
+      </div>
+    </section>
+  </main>
+</div>
+
+<dialog id="copy-dialog" data-testid="copy-dialog" aria-labelledby="copy-title">
+  <h2 id="copy-title">复制完整路径</h2>
+  <p>自动复制不可用。请选中路径并按 Ctrl+C。</p>
+  <input id="copy-path" data-testid="copy-path" aria-label="待复制的完整路径" readonly>
+  <button id="copy-close" class="btn ghost" aria-label="关闭复制路径对话框">关闭</button>
+</dialog>
+<div id="toast" class="hidden" role="status" aria-live="polite"></div>
+
+<dialog id="ptr-dialog" data-testid="ptr-dialog" class="ptr-dialog" aria-labelledby="ptr-title">
+  <header class="ptr-header">
+    <h2 id="ptr-title"></h2>
+    <p id="ptr-description"></p>
+  </header>
+  <form id="ptr-form" class="ptr-form"></form>
+  <footer class="ptr-footer">
+    <p id="ptr-status" class="settings-note" role="status" aria-live="polite"></p>
+    <div class="ptr-actions">
+      <button id="ptr-cancel" class="btn ghost" type="button">取消</button>
+      <button id="ptr-submit" data-testid="ptr-submit" class="btn primary" type="button">保存</button>
+    </div>
+  </footer>
+</dialog>
+
+<dialog id="settings-dialog" data-testid="settings-dialog" class="settings-dialog" aria-labelledby="settings-title">
+  <header class="settings-header"><div><h2 id="settings-title">设置</h2><p>让工作台适合你的浏览习惯</p></div><button id="settings-close" class="icon-btn" aria-label="关闭设置" title="关闭设置">×</button></header>
+  <section class="settings-section" aria-labelledby="appearance-title">
+    <h3 id="appearance-title">外观</h3>
+    <div class="settings-row"><label for="theme-select">主题</label><select id="theme-select" data-testid="theme-select" aria-label="主题"><option value="system">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select></div>
+    <h4 id="accent-title">重点色</h4>
+    <div id="accent-presets" class="accent-presets" role="group" aria-labelledby="accent-title"></div>
+    <div class="accent-custom"><label for="accent-color">自定义</label><input id="accent-color" data-testid="accent-color" type="color" value="#0066cc" aria-label="重点色色盘"><label for="accent-hex" class="sr-only">重点色十六进制值</label><input id="accent-hex" data-testid="accent-hex" type="text" value="#0066cc" maxlength="7" spellcheck="false" autocomplete="off" aria-label="重点色十六进制值" aria-describedby="accent-note settings-status"></div>
+    <div class="accent-preview"><span class="accent-original-dot" aria-hidden="true"></span><span>所选原色 <strong id="accent-value">#0066CC</strong></span><span class="accent-sample">选中效果</span></div>
+    <p id="accent-note" class="settings-note">深浅主题已适配文字与焦点对比度，界面颜色可能与原色略有不同。</p>
+  </section>
+  <section class="settings-section" aria-labelledby="taskview-title">
+    <h3 id="taskview-title">任务视图</h3>
+    <div class="settings-row"><label for="task-view-select">渲染样式</label><select id="task-view-select" data-testid="task-view-select" aria-label="任务视图渲染样式"><option value="indent">缩进连线</option><option value="cards">卡片分组</option></select></div>
+    <p class="settings-note">切换左侧「任务与运行」的呈现方式，不影响路径树。</p>
+  </section>
+  <section class="settings-section" aria-labelledby="identity-title">
+    <h3 id="identity-title">治理身份</h3>
+    <div class="settings-row"><label for="actor-input">当前负责人</label><input id="actor-input" data-testid="actor-input" type="text" maxlength="64" spellcheck="false" autocomplete="off" placeholder="填写后才可新建/编辑任务与运行" aria-describedby="actor-note"></div>
+    <p id="actor-note" class="settings-note">写操作会以这个身份记入治理流水（dmy --actor）。只允许当前负责者维护任务状态。</p>
+  </section>
+  <section class="settings-section" aria-labelledby="runtime-title">
+    <h3 id="runtime-title">运行版本</h3>
+    <dl class="settings-meta">
+      <div><dt>版本</dt><dd data-testid="meta-version">—</dd></div>
+      <div><dt>源码提交</dt><dd data-testid="meta-sha">—</dd></div>
+      <div><dt>安装来源</dt><dd data-testid="meta-source">—</dd></div>
+    </dl>
+    <p class="settings-note">工作台直接运行源码；界面修改刷新生效，服务逻辑修改需重启。源码提交显示当前检出版本。</p>
+  </section>
+  <section class="settings-section" aria-labelledby="service-title">
+    <h3 id="service-title">服务</h3>
+    <div class="settings-row">
+      <label for="btn-restart-service">重启服务</label>
+      <button id="btn-restart-service" data-testid="restart-service" class="btn ghost" aria-describedby="restart-note">重启</button>
+    </div>
+    <p id="restart-note" class="settings-note">停止当前实例后重新启动并打开窗口。端口与会话都会更换，本窗口会失效，请改用新窗口。</p>
+  </section>
+  <section class="settings-section" aria-labelledby="shortcuts-title"><h3 id="shortcuts-title">快捷键</h3><dl class="settings-shortcuts"><div><dt>快速跳转</dt><dd><kbd>Ctrl</kbd> + <kbd>K</kbd></dd></div><div><dt>全局搜索</dt><dd><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>F</kbd></dd></div><div><dt>筛选当前目录</dt><dd><kbd>/</kbd></dd></div><div><dt>关闭对话框</dt><dd><kbd>Esc</kbd></dd></div></dl></section>
+  <footer class="settings-footer"><button id="settings-reset" data-testid="settings-reset" class="btn ghost">恢复默认外观</button><p id="settings-status" role="status" aria-live="polite">更改后自动保存</p></footer>
+</dialog>
+<script type="module" src="/app.js"></script>
+</body>
+</html>
+

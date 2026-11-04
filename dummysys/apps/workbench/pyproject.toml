@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dummysys-workbench"
+version = "0.5.0"
+description = "DUMMYSYS 工作台：以项目为入口的本地目录浏览与外部应用打开"
+requires-python = ">=3.11"
+dependencies = [
+    "dummysys-cli==0.3.1",
+    "Flask>=3.0",
+    "waitress>=3.0",
+    "PyYAML>=6.0",
+    "pywin32>=312; sys_platform == 'win32'",
+]
+
+[project.optional-dependencies]
+desktop = ["pywebview>=6.2.1; sys_platform == 'win32'"]
+dev = ["PyInstaller>=6.22.3", "playwright>=1.63.0"]
+
+[project.scripts]
+workbench = "workbench.__main__:main"
+
+[tool.setuptools]
+packages = ["workbench"]
+
+[tool.setuptools.package-data]
+workbench = ["static/*.html", "static/*.js", "static/*.css", "static/vendor/*", "static/icons/*"]
