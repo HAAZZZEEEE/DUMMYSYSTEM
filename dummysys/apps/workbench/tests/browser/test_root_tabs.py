@@ -1,7 +1,7 @@
 """多仓库和长名称的根选项卡布局与可达性。"""
 import json
 
-from browser_fixture import A, BrowserCase, expect
+from browser_fixture import A, B, BrowserCase, expect
 from tests.helpers import write_json
 
 
@@ -22,76 +22,101 @@ class RootTabsTests(BrowserCase):
         write_json(path, binding)
         self.page.locator('#btn-project-refresh').click()
         self.project()
-        expect(self.page.get_by_role('tab')).to_have_count(count + 2 + int(long_names))
+        expect(self.page.get_by_role('tab')).to_have_count(3)
 
-    def test_long_names_stay_single_line_and_do_not_widen_page(self):
+    def open_repositories(self):
+        self.page.get_by_role('tab', name='代码仓库', exact=True).click()
+        expect(self.page.get_by_role('menu', name='代码仓库', exact=True)).to_be_visible()
+
+    def test_many_long_names_in_bounded_dropdown(self):
         self.prepare()
+        expect(self.page.locator('#repo-root-menu')).to_be_hidden()
         for width in (1440, 960, 760):
             with self.subTest(width=width):
                 self.page.set_viewport_size({'width': width, 'height': 1000})
-                metrics = self.page.locator('#root-tabs').evaluate('''host => ({
-                    pageWidth: document.documentElement.scrollWidth,
-                    viewport: innerWidth,
-                    height: host.clientHeight,
-                    tabHeight: host.firstElementChild.offsetHeight,
-                    widths: [...host.children].map(tab => tab.getBoundingClientRect().width),
-                    lines: [...host.children].map(tab => getComputedStyle(tab).whiteSpace)
+                self.open_repositories()
+                expect(self.page.get_by_role('menuitemradio')).to_have_count(17)
+                metrics = self.page.locator('#repo-root-menu').evaluate('''host => ({
+                    pageWidth: document.documentElement.scrollWidth, viewport: innerWidth,
+                    left: host.getBoundingClientRect().left, right: host.getBoundingClientRect().right,
+                    height: host.clientHeight, contentHeight: host.scrollHeight,
+                    widths: [...host.children].map(item => item.scrollWidth <= item.clientWidth),
+                    wrapping: [...host.querySelectorAll('span')].every(item => getComputedStyle(item).whiteSpace === 'normal')
                 })''')
                 self.assertLessEqual(metrics['pageWidth'], metrics['viewport'])
-                self.assertLessEqual(metrics['height'], metrics['tabHeight'] + 2)
-                self.assertTrue(all(width <= 220 for width in metrics['widths']), metrics)
-                self.assertTrue(all(line == 'nowrap' for line in metrics['lines']), metrics)
-        self.page.screenshot(path=str(self.output / 'root-tabs-narrow.png'))
+                self.assertGreaterEqual(metrics['left'], 0)
+                self.assertLessEqual(metrics['right'], metrics['viewport'])
+                self.assertGreater(metrics['contentHeight'], metrics['height'])
+                self.assertTrue(all(metrics['widths']), metrics)
+                self.assertTrue(metrics['wrapping'])
+                self.page.keyboard.press('End')
+                expect(self.page.get_by_role('menuitemradio').last).to_be_focused()
+                self.assertGreater(self.page.locator('#repo-root-menu').evaluate('host => host.scrollTop'), 0)
+                self.page.screenshot(path=str(self.output / f'repo-dropdown-{width}.png'))
+                self.page.keyboard.press('Escape')
 
-    def assert_visible_in_strip(self, selector):
-        self.page.wait_for_function('''selector => {
-            const host = document.getElementById('root-tabs').getBoundingClientRect();
-            const tab = document.querySelector(selector)?.getBoundingClientRect();
-            return tab && tab.left >= host.left - 1 && tab.right <= host.right + 1;
-        }''', arg=selector)
-
-    def test_scroll_buttons_keyboard_selection_and_resize(self):
+    def test_choose_repository_and_current_selection(self):
         self.prepare()
-        previous = self.page.locator('#root-tabs-prev')
-        following = self.page.locator('#root-tabs-next')
-        expect(previous).to_be_visible()
-        expect(previous).to_be_disabled()
-        expect(following).to_be_enabled()
-        following.click()
-        self.assertGreater(self.page.locator('#root-tabs').evaluate('host => host.scrollLeft'), 0)
-        expect(previous).to_be_enabled()
-        # 普通目录刷新不应重置用户手动查看后方选项卡的位置。
-        self.page.locator('#btn-refresh').click()
-        self.ready()
-        self.assertGreater(self.page.locator('#root-tabs').evaluate('host => host.scrollLeft'), 0)
-        # DOM click 不触发 Playwright 的自动滚动，验证产品自身使当前项可见。
-        self.page.locator('#root-tabs .root-tab').nth(-2).evaluate('tab => tab.click()')
+        self.open_repositories()
+        self.target_locator('repo-root-option', root='repo:' + self.repo_ids[-1]).click()
         self.ready(root='repo:' + self.repo_ids[-1])
-        self.assert_visible_in_strip('#root-tabs .active')
-        self.page.locator('#root-tabs .active').focus()
-        self.page.keyboard.press('End')
-        self.assert_visible_in_strip('#root-tabs .root-tab:last-child')
-        self.page.keyboard.press('Enter')
-        expect(self.page.locator('#root-tabs .root-tab:last-child')).to_have_attribute('aria-selected', 'true')
-        self.assert_visible_in_strip('#root-tabs .active')
-        expect(following).to_be_disabled()
-        for width in (960, 760, 1440):
-            self.page.set_viewport_size({'width': width, 'height': 1000})
-            self.assert_visible_in_strip('#root-tabs .active')
-        self.page.keyboard.press('Home')
-        self.assert_visible_in_strip('#root-tabs .root-tab:first-child')
-        expect(previous).to_be_disabled()
-        self.page.keyboard.press('Enter')
+        trigger = self.page.get_by_role('tab', name='代码仓库', exact=True)
+        expect(trigger).to_have_attribute('aria-selected', 'true')
+        expect(trigger).to_have_attribute('aria-expanded', 'false')
+        expect(trigger).to_have_attribute('title', '代码仓库：' + self.repo_ids[-1])
+        self.open_repositories()
+        selected = self.target_locator('repo-root-option', root='repo:' + self.repo_ids[-1])
+        expect(selected).to_have_attribute('aria-checked', 'true')
+        expect(selected).to_be_focused()
+        self.page.keyboard.press('Escape')
+        self.page.go_back()
         self.ready()
-        self.assert_visible_in_strip('#root-tabs .active')
-        self.page.emulate_media(color_scheme='dark', reduced_motion='reduce')
-        self.page.screenshot(path=str(self.output / 'root-tabs-dark.png'))
+        expect(trigger).to_have_attribute('aria-selected', 'false')
+        self.page.go_forward()
+        self.ready(root='repo:' + self.repo_ids[-1])
+        self.page.reload()
+        self.ready(root='repo:' + self.repo_ids[-1])
+        expect(trigger).to_have_attribute('aria-selected', 'true')
 
-    def test_short_list_hides_scroll_controls(self):
-        self.prepare(count=1, long_names=False)
-        expect(self.page.locator('#root-tabs-prev')).to_be_hidden()
-        expect(self.page.locator('#root-tabs-next')).to_be_hidden()
-        self.page.get_by_role('tab').last.click()
+    def test_keyboard_dismiss_and_project_change(self):
+        self.prepare()
+        trigger = self.page.get_by_role('tab', name='代码仓库', exact=True)
+        trigger.focus()
+        self.page.keyboard.press('ArrowDown')
+        expect(self.page.get_by_role('menuitemradio').first).to_be_focused()
+        self.page.keyboard.press('End')
+        expect(self.page.get_by_role('menuitemradio').last).to_be_focused()
+        self.page.keyboard.press('Home')
+        self.page.keyboard.press('ArrowDown')
+        self.page.keyboard.press('ArrowUp')
+        self.page.keyboard.press('Enter')
         self.ready(root='repo:' + self.repo_ids[0])
-        self.assert_visible_in_strip('#root-tabs .active')
-        expect(self.page.get_by_role('tab').last).to_have_attribute('title', '代码 ' + self.repo_ids[0])
+        expect(trigger).to_be_focused()
+        self.open_repositories()
+        trigger.click()
+        expect(self.page.locator('#repo-root-menu')).to_be_hidden()
+        self.open_repositories()
+        self.page.keyboard.press('Escape')
+        expect(trigger).to_be_focused()
+        expect(trigger).to_have_attribute('aria-expanded', 'false')
+        self.open_repositories()
+        self.page.keyboard.press('Tab')
+        expect(self.page.locator('#repo-root-menu')).to_be_hidden()
+        self.open_repositories()
+        self.page.locator('#project-title').click()
+        expect(trigger).to_have_attribute('aria-expanded', 'false')
+        self.open_repositories()
+        self.project(B)
+        expect(self.page.locator('#repo-root-trigger')).to_have_count(0)
+        expect(self.page.locator('#repo-root-menu')).to_be_hidden()
+        self.project(A)
+        self.open_repositories()
+        self.page.emulate_media(color_scheme='dark', reduced_motion='reduce')
+        self.page.screenshot(path=str(self.output / 'repo-dropdown-dark.png'))
+
+    def test_single_repository_still_uses_dropdown(self):
+        self.prepare(count=1, long_names=False)
+        self.open_repositories()
+        expect(self.page.get_by_role('menuitemradio')).to_have_count(1)
+        self.page.get_by_role('menuitemradio').click()
+        self.ready(root='repo:' + self.repo_ids[0])

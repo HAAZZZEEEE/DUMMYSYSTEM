@@ -76,6 +76,56 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
     tabLayoutFrame = requestAnimationFrame(() => layoutTabs(true));
   });
   tabResizeObserver.observe(rootStrip);
+  const repoMenu = $('repo-root-menu');
+  let repoMenuKey;
+  function closeRepoMenu(restoreFocus = false) {
+    if (repoMenu.matches(':popover-open')) repoMenu.hidePopover();
+    $('repo-root-trigger')?.setAttribute('aria-expanded', 'false');
+    if (restoreFocus) $('repo-root-trigger')?.focus({ preventScroll: true });
+  }
+  function positionRepoMenu() {
+    const anchor = $('repo-root-trigger')?.getBoundingClientRect();
+    if (!anchor) return;
+    const width = Math.min(480, window.innerWidth - 24);
+    repoMenu.style.width = `${width}px`;
+    repoMenu.style.left = `${Math.max(12, Math.min(anchor.left, window.innerWidth - width - 12))}px`;
+    const below = window.innerHeight - anchor.bottom - 18;
+    const above = below < 120 && anchor.top > below;
+    repoMenu.style.top = above ? 'auto' : `${anchor.bottom + 6}px`;
+    repoMenu.style.bottom = above ? `${window.innerHeight - anchor.top + 6}px` : 'auto';
+    repoMenu.style.maxHeight = `${Math.max(60, Math.min(420, above ? anchor.top - 18 : below))}px`;
+  }
+  function openRepoMenu(last = false) {
+    positionRepoMenu();
+    if (!repoMenu.matches(':popover-open')) repoMenu.showPopover();
+    $('repo-root-trigger').setAttribute('aria-expanded', 'true');
+    const items = [...repoMenu.children];
+    const selected = items.find((item) => item.getAttribute('aria-checked') === 'true');
+    (last ? items.at(-1) : selected || items[0])?.focus();
+  }
+  repoMenu.addEventListener('toggle', () => {
+    $('repo-root-trigger')?.setAttribute('aria-expanded', String(repoMenu.matches(':popover-open')));
+  });
+  repoMenu.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' || event.key === 'Tab') {
+      if (event.key === 'Escape') event.preventDefault();
+      closeRepoMenu(true);
+      return;
+    }
+    if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const items = [...repoMenu.children];
+    const index = items.indexOf(document.activeElement);
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1
+      : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+    items[next]?.focus();
+  });
+  window.addEventListener('resize', () => {
+    if (repoMenu.matches(':popover-open')) positionRepoMenu();
+  });
+  rootTabs.addEventListener('scroll', () => {
+    if (repoMenu.matches(':popover-open')) positionRepoMenu();
+  }, { passive: true });
   let projects = [];
   let deletedProjects = [];
   let diagnostics = [];
@@ -163,22 +213,73 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
     const changedTab = nextTabLocation !== tabLocation;
     $('root-tabs').replaceChildren();
     $('root-tabs').setAttribute('role', 'tablist');
-    const tabs = state.homepage ? [{ root_id: 'homepage', label: '首页' }, ...state.roots] : state.roots;
+    const repositories = state.roots.filter((root) => root.kind === 'repo');
+    const currentRepo = repositories.find((root) => root.root_id === value?.root_id);
+    const nextRepoMenuKey = JSON.stringify([value?.project_id, value?.root_id, value?.relative_path,
+      repositories.map((root) => [root.root_id, root.label])]);
+    if (nextRepoMenuKey !== repoMenuKey) {
+      repoMenuKey = nextRepoMenuKey;
+      closeRepoMenu();
+      repoMenu.replaceChildren();
+      for (const root of repositories) {
+        const rootTarget = nav.rootTarget(root.root_id);
+        const item = mark(document.createElement('button'), 'repo-root-option', rootTarget);
+        item.className = 'repo-root-option';
+        item.setAttribute('role', 'menuitemradio');
+        item.setAttribute('aria-checked', String(root === currentRepo));
+        item.tabIndex = -1;
+        item.title = root.label;
+        item.append(icon('check'));
+        const label = document.createElement('span');
+        label.textContent = root.label;
+        item.append(label);
+        item.onclick = () => { closeRepoMenu(true); nav.go(rootTarget); };
+        repoMenu.append(item);
+      }
+    }
+    const roots = state.roots.filter((root) => root.kind !== 'repo');
+    const tabs = state.homepage ? [{ root_id: 'homepage', label: '首页' }, ...roots] : [...roots];
+    if (repositories.length) tabs.push({ root_id: 'repositories',
+      label: currentRepo ? `代码仓库：${currentRepo.label.replace(/^代码 /, '')}` : `代码仓库（${repositories.length}）` });
     if (tabs.length || !value) tabLocation = nextTabLocation;
     for (const root of tabs) {
-      const rootTarget = nav.rootTarget(root.root_id);
-      const tab = mark(document.createElement('button'), 'root-tab', rootTarget);
-      const selected = root.root_id === value.root_id;
+      const repoSelector = root.root_id === 'repositories';
+      const rootTarget = repoSelector ? null : nav.rootTarget(root.root_id);
+      const tab = mark(document.createElement('button'), repoSelector ? 'repo-root-selector' : 'root-tab', rootTarget);
+      const selected = repoSelector ? !!currentRepo : root.root_id === value.root_id;
       tab.className = `root-tab${selected ? ' active' : ''}`;
       tab.textContent = root.label;
       tab.title = root.label;
       tab.dataset.rootId = root.root_id;
       tab.setAttribute('role', 'tab');
       tab.setAttribute('aria-selected', String(selected));
-      tab.setAttribute('aria-label', root.root_id === 'homepage' ? '项目首页' : `根目录：${root.label}`);
+      tab.setAttribute('aria-label', repoSelector ? '代码仓库' : root.root_id === 'homepage' ? '项目首页' : `根目录：${root.label}`);
       tab.tabIndex = selected ? 0 : -1;
-      tab.onclick = () => nav.go(rootTarget);
+      if (repoSelector) {
+        tab.id = 'repo-root-trigger';
+        tab.classList.add('repo-root-trigger');
+        const label = document.createElement('span');
+        label.className = 'repo-root-caption';
+        label.textContent = root.label;
+        tab.replaceChildren(label, icon('chevron'));
+        tab.setAttribute('aria-haspopup', 'menu');
+        tab.setAttribute('aria-controls', 'repo-root-menu');
+        tab.setAttribute('popovertarget', 'repo-root-menu');
+        tab.setAttribute('aria-expanded', String(repoMenu.matches(':popover-open')));
+      }
+      tab.onclick = (event) => {
+        if (repoSelector) {
+          event.preventDefault();
+          if (repoMenu.matches(':popover-open')) closeRepoMenu(true);
+          else openRepoMenu();
+        } else nav.go(rootTarget);
+      };
       tab.onkeydown = (event) => {
+        if (repoSelector && ['ArrowDown', 'ArrowUp'].includes(event.key)) {
+          event.preventDefault();
+          openRepoMenu(event.key === 'ArrowUp');
+          return;
+        }
         if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
         event.preventDefault();
         const tabs = [...$('root-tabs').children];

@@ -29,7 +29,11 @@ class RootContextTests(BrowserCase):
         expect(self.page.get_by_test_id('task-node')).to_have_count(1)
 
     def switch(self, root, relative='', project=A):
-        self.page.get_by_role('tab', name={'docs': '根目录：文档', 'resources': '根目录：项目资源', 'repo:demo': '根目录：代码 demo'}[root], exact=True).click()
+        if root.startswith('repo:'):
+            self.page.get_by_role('tab', name='代码仓库', exact=True).click()
+            self.page.get_by_role('menuitemradio', name='代码 demo', exact=True).click()
+        else:
+            self.page.get_by_role('tab', name={'docs': '根目录：文档', 'resources': '根目录：项目资源'}[root], exact=True).click()
         self.ready(relative, project, root)
         expect(self.page.locator(f'[data-testid="project-link"][data-id="{project}"]')).to_have_attribute('aria-current', 'true')
         if project == A and relative.startswith(TASK) and not self.doc_task.startswith('archive/'):
