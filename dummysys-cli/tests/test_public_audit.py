@@ -119,3 +119,18 @@ class PublicAuditTests(unittest.TestCase):
         self.assertEqual(report["reviewed"], [])
         self.assertIn(dict(rule="git_history_unavailable"), report["unresolved"])
 
+    def test_unattached_tree_filename_cannot_be_reviewed_as_content(self):
+        (self.root / "README.md").write_text("clean", encoding="utf-8")
+        self.commit()
+        blob = self.git("rev-parse", "HEAD:README.md").decode().strip()
+        tree = subprocess.check_output(["git", "mktree"], cwd=self.root,
+            input=f"100644 blob {blob}\tsynthetic-value-42.md\n".encode()).decode().strip()
+        data = self.git("cat-file", "tree", tree)
+        reviewed = self.base / "reviewed.json"
+        reviewed.write_text(json.dumps([dict(path=f"git:{tree}/tree", rule="private_deny_token",
+            sha256=hashlib.sha256(data).hexdigest(), reason="invalid filename exemption")]), encoding="utf-8")
+        code, report = self.scan(["--git-history", "--reviewed", str(reviewed)])
+        self.assertEqual(code, 1)
+        self.assertTrue(any(f.get("location") == "filename" for f in report["unresolved"]))
+        self.assertNotIn("synthetic-value-42", json.dumps(report))
+

@@ -69,6 +69,13 @@ def git_entries(root):
             for name in paths or [None]:
                 yield f"git:{oid}/{name or 'unmapped-blob'}", data, name, None if name else "unmapped_git_blob"
         else:
+            if kind == "tree":
+                # 独立 tree 不一定属于提交；名称必须独立检查，不能按正文豁免。
+                for entry in git("ls-tree", "-z", oid).split(b"\0"):
+                    if entry:
+                        _, raw_name = entry.split(b"\t", 1)
+                        name = raw_name.decode("utf-8")
+                        yield f"git:{oid}/tree-entry/{name}", b"", None, None
             yield f"git:{oid}/{kind}", data, None, None
     for name in ("config", "HEAD", "packed-refs"):
         path = metadata / name
