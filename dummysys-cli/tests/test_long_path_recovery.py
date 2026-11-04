@@ -5,6 +5,7 @@ import unittest
 import os
 import tempfile
 import shutil
+from unittest.mock import patch
 from dummysys_core._migration import hash_tree
 
 spec = importlib.util.spec_from_file_location('recovery', Path(__file__).parents[1] / 'scripts/recover_long_paths.py')
@@ -13,6 +14,38 @@ spec.loader.exec_module(recovery)
 
 
 class RecoveryTests(unittest.TestCase):
+    def test_io_conversion_never_resolves_links(self):
+        from dummysys_core.operations import native_path
+        path = Path(tempfile.gettempdir()) / 'junction' / 'file'
+        with patch.object(Path, 'resolve', side_effect=AssertionError('must not follow link')):
+            converted = native_path(path)
+        self.assertEqual(converted.name, 'file')
+        self.assertEqual(converted.parent.name, 'junction')
+
+    @unittest.skipUnless(os.name == 'nt', 'Windows 长目录受管提交')
+    def test_commit_and_recovery_of_deep_empty_directories(self):
+        from dummysys_core.initialize import initialize
+        from dummysys_core.workspace import Workspace
+        from dummysys_core.operations import native_path
+        with tempfile.TemporaryDirectory(dir=native_path(tempfile.gettempdir())) as directory:
+            root = Path(directory.removeprefix('\\\\?\\')) / ('workspace' * 7)
+            initialize(native_path(root))
+            ws = Workspace(root)
+            relative = Path('runtime') / ('segment' * 20) / ('nested' * 20) / 'empty'
+            target = root / relative
+            self.assertGreater(len(str(target)), 260)
+            def prepare(stage):
+                (stage / relative).mkdir(parents=True)
+                return {'path': str(stage / relative)}
+            def crash(step, index):
+                if step == 'prepared':
+                    raise RuntimeError('interruption')
+            with self.assertRaises(RuntimeError):
+                ws.operations.execute('fixture', {}, 'tester', prepare, request_id='long-directory', checkpoint=crash)
+            record = ws.operations.pending()[0]
+            ws.operations.recover(record['operation_id'])
+            self.assertTrue(native_path(target).is_dir())
+
     def test_frontmatter_lists_use_vault_block_format(self):
         from dummysys_core._frontmatter import _render_front, parse
         rendered = _render_front({'aliases': ['old, name', '旧名']}, '')

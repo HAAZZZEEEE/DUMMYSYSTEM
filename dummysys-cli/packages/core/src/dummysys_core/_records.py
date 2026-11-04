@@ -25,7 +25,8 @@ def now():
 
 
 def read_json(path):
-    return json.loads(path.read_text(encoding='utf-8'))
+    from .operations import native_path
+    return json.loads(native_path(path).read_text(encoding='utf-8'))
 
 
 def write_json(path, value):
@@ -624,7 +625,8 @@ def check(root):
                         if record.get('status') in {'completed', 'failed', 'cancelled'} and (not record.get('finished_at') or not record.get('result')):
                             failures.append(f'Run 缺少结束时间或结果：{folder.name}')
                         for evidence in record.get('evidence', []):
-                            if Path(evidence).is_absolute() and not resolve_evidence(root, evidence).exists():
+                            from .operations import native_path
+                            if Path(evidence).is_absolute() and not native_path(resolve_evidence(root, evidence)).exists():
                                 failures.append(f'Run 本机证据不存在：{evidence}')
                         identity(record.get('run_id'), folder.name)
                         if not re.fullmatch(r'\[\d{8}-\d{6}\].+', folder.name):

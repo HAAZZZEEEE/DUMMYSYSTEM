@@ -122,6 +122,20 @@
 - `--project`：可选；类型 str
 - `--apply`：可选；类型 bool；默认 false
 
+## dmy project export
+
+- `--project`：必填；类型 str
+- `--output`：可选；类型 str
+- `--include-resource`：可选；类型 str；默认 []
+- `--dry-run`：可选；类型 bool；默认 false
+
+## dmy project import
+
+- `--bundle`：必填；类型 str
+- `--repo-path`：可选；类型 str；默认 []
+- `--dry-run`：可选；类型 bool；默认 false
+- `--if-plan`：可选；类型 str
+
 ## dmy task list
 
 - `--project`：可选；类型 str

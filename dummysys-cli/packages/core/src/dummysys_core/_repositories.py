@@ -61,7 +61,7 @@ def checkout_root(path):
         raise ValueError('checkout 必须是绝对路径')
     path = path.resolve(strict=True)
     top = Path(git(path, 'rev-parse', '--show-toplevel').stdout.decode('utf-8').strip()).resolve()
-    if top != path:
+    if not top.samefile(path):
         raise ValueError('绑定必须指向 Git checkout 根，不能是仓库内子目录')
     return path
 

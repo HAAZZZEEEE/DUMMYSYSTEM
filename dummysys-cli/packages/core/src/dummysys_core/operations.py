@@ -36,13 +36,29 @@ def digest(data):
 
 
 def payload(path):
+    path = native_path(path)
     return path.read_bytes() if path.is_file() else None
 
 
-def atomic_write(path, data):
+def native_path(path):
+    """仅 I/O 使用 Windows 扩展路径；记录和配置保留原拼写。"""
+    path = Path(path)
     if os.name == 'nt' and not str(path).startswith('\\\\?\\'):
-        absolute = str(path.resolve())
+        # 保留链接本身供 lstat/边界校验识别；I/O 前缀转换不解引用。
+        absolute = os.path.abspath(str(path))
         path = Path('\\\\?\\UNC\\' + absolute[2:] if absolute.startswith('\\\\') else '\\\\?\\' + absolute)
+    return path
+
+
+def glob_paths(base, pattern):
+    """扫描使用扩展路径，返回调用方原始路径形式。"""
+    base = Path(base)
+    native = native_path(base)
+    return (base / path.relative_to(native) for path in native.glob(pattern))
+
+
+def atomic_write(path, data):
+    path = native_path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(prefix='.dmy-', dir=path.parent)
     try:
@@ -145,34 +161,34 @@ def inventory(root):
     # 准备区包含定位声明及规则；否则新版路径在 stage 中无法解析。
     for base in governance_paths(root).values():
         if base.is_dir():
-            paths.update(base.rglob('*.md'))
+            paths.update(glob_paths(base, '**/*.md'))
         elif base.is_file():
             paths.add(base)
     for relative in ('dmy_vault/30-项目', 'dmy_vault/10-系统/仓库'):
         base = loc.resolve(root, relative)
         if base.exists():
-            paths.update(base.rglob('*.md'))
+            paths.update(glob_paths(base, '**/*.md'))
     base = loc.runtime(root) / 'project_src'
     if base.exists():
         for project in base.iterdir():
             if not project.is_dir():
                 continue
             for name in ('project.json', 'README.md', 'AGENTS.md'):
-                if (project / name).is_file():
+                if native_path(project / name).is_file():
                     paths.add(project / name)
             for task in project.iterdir():
                 if task.is_dir() and task.name.startswith('[task '):
                     for name in ('task.json', 'README.md', 'AGENTS.md'):
-                        if (task / name).is_file():
+                        if native_path(task / name).is_file():
                             paths.add(task / name)
-                    paths.update(task.glob('runs/*/run.json'))
-                    paths.update(task.glob('runs/*/run-management.json'))
+                    paths.update(glob_paths(task, 'runs/*/run.json'))
+                    paths.update(glob_paths(task, 'runs/*/run-management.json'))
     for name in ('repositories.json', 'retired-paths.json'):
         path = loc.runtime(root) / 'state/workspace' / name
         if path.exists():
             paths.add(path)
-    return {loc.relative(root, p).as_posix(): safe_target(root, loc.relative(root, p)).read_bytes()
-            for p in sorted(paths) if p.is_file()}
+    return {loc.relative(root, p).as_posix(): native_path(safe_target(root, loc.relative(root, p))).read_bytes()
+            for p in sorted(paths) if native_path(p).is_file()}
 
 
 def rebase_text(text, source, target):
@@ -209,11 +225,11 @@ class Operations:
         return installed['source_commit']
 
     def list(self):
-        return [self._load(p) for p in sorted(self.base.glob('*/operation.json'))]
+        return [self._load(p) for p in sorted(glob_paths(self.base, '*/operation.json'))]
 
     def _load(self, path):
         try:
-            value = json.loads(path.read_text(encoding='utf-8'))
+            value = json.loads(native_path(path).read_text(encoding='utf-8'))
         except (ValueError,OSError) as error:
             raise GovernanceError('INCOMPATIBLE_OPERATION','Operation 无法读取，请保留现场并核对原发行',path=str(path)) from error
         if not isinstance(value,dict) or value.get('schema_version') != 1 or value.get('workspace') != str(self.root):
@@ -228,7 +244,7 @@ class Operations:
         if not operation_id or any(c not in '0123456789abcdef' for c in operation_id) or len(operation_id) != 64:
             raise GovernanceError('INVALID_ARGUMENT', 'Operation ID 格式错误')
         p = self.base / operation_id / 'operation.json'
-        if not p.exists():
+        if not native_path(p).exists():
             raise GovernanceError('NOT_FOUND', 'Operation 不存在')
         return self._load(p)
 
@@ -308,7 +324,7 @@ class Operations:
                 raise GovernanceError('RECOVERY_CONFLICT', '文件已有后续修改，保留现场',
                                       operation_id=record['operation_id'], path=str(target))
             blob = folder / entry['blob']
-            if blob.parent != folder or digest(blob.read_bytes()) != entry['after']:
+            if blob.parent != folder or digest(payload(blob)) != entry['after']:
                 raise GovernanceError('RECOVERY_CORRUPT', '操作快照损坏')
         record['status'] = 'applying'
         save(folder / 'operation.json', record)
@@ -318,11 +334,11 @@ class Operations:
                 continue
             if digest(payload(target)) != entry['before']:
                 raise GovernanceError('RECOVERY_CONFLICT', '提交期间文件发生变化', path=str(target))
-            atomic_write(target, (folder / entry['blob']).read_bytes())
+            atomic_write(target, native_path(folder / entry['blob']).read_bytes())
             if checkpoint:
                 checkpoint('file', index)
         for relative in record.get('directories', []):
-            safe_target(self.root, relative).mkdir(parents=True, exist_ok=True)
+            native_path(safe_target(self.root, relative)).mkdir(parents=True, exist_ok=True)
         if any(digest(payload(safe_target(self.root, e['path']))) != e['after'] for e in record['files']):
             raise GovernanceError('RECOVERY_CONFLICT', '提交后校验不一致')
         record['status'] = 'completed'
@@ -350,7 +366,7 @@ class Operations:
         with workspace_lock(self.root):
             folder = self.base / operation_id
             resuming = False
-            if (folder / 'operation.json').exists():
+            if native_path(folder / 'operation.json').exists():
                 old = self.show(operation_id)
                 if old['fingerprint'] != fingerprint:
                     raise GovernanceError('REQUEST_CONFLICT', '同一请求 ID 的参数或计划发生变化')
@@ -371,7 +387,7 @@ class Operations:
             if validate and not resuming:
                 # 锁内、回执落盘前校验（计划过期抛 PLAN_CONFLICT），不留失败回执。
                 validate()
-            folder.mkdir(parents=True, exist_ok=True)
+            native_path(folder).mkdir(parents=True, exist_ok=True)
             record = old if resuming else dict(schema_version=1, tool_version=__version__, workspace=str(self.root),
                           source_commit=self.source_commit(), kind='migration',
                           operation_id=operation_id, request_id=request_id, fingerprint=fingerprint,
@@ -404,7 +420,7 @@ class Operations:
                                        sort_keys=True, ensure_ascii=False, default=str).encode())
         with workspace_lock(self.root):
             folder = self.base / operation_id
-            if (folder / 'operation.json').exists():
+            if native_path(folder / 'operation.json').exists():
                 old = self.show(operation_id)
                 if old['fingerprint'] != fingerprint:
                     raise GovernanceError('REQUEST_CONFLICT', '同一请求 ID 的参数发生变化')
@@ -414,7 +430,7 @@ class Operations:
             self.settle()
             if expected_version is not None and (version is None or version() != expected_version):
                 raise GovernanceError('VERSION_CONFLICT', '记录已变化，请重新查询后提交')
-            folder.mkdir(parents=True, exist_ok=True)
+            native_path(folder).mkdir(parents=True, exist_ok=True)
             record = dict(schema_version=1, tool_version=__version__, workspace=str(self.root),
                           source_commit=self.source_commit(),
                           operation_id=operation_id, request_id=request_id, fingerprint=fingerprint,
@@ -426,7 +442,7 @@ class Operations:
             try:
                 before = inventory(self.root)
                 temp_root = loc.runtime(self.root) / 'tmp/dmy'
-                temp_root.mkdir(parents=True, exist_ok=True)
+                native_path(temp_root).mkdir(parents=True, exist_ok=True)
                 # 准备区再次嵌套完整工作区，会超过传统 MAX_PATH；仅文件 I/O
                 # 使用扩展路径。下方 rebase_text 在发布前还原正式工作区路径。
                 if os.name == 'nt' and not str(temp_root).startswith('\\\\?\\'):

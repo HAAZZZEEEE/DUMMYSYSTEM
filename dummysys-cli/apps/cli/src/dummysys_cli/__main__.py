@@ -56,6 +56,9 @@ def dispatch(ws, args, global_args):
     if group == 'diagnose':
         return diagnostics.show(ws.root, p['id'])
     if group == 'project':
+        if command == 'export':
+            from dummysys_core.transfer import export_project
+            return export_project(ws, **p)
         if command == 'list': return ws.projects()
         if command == 'show': return ws.project(p['id'])
         if command == 'sync':

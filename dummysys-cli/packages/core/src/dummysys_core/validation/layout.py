@@ -101,7 +101,7 @@ def validate_runtime(root: Path) -> list[str]:
                     continue
                 if child.name in {'README.md', 'AGENTS.md', 'project.json', 'workbench.json'} and child.is_file():
                     continue
-                if child.is_dir() and (child.name in {'src', 'tests', 'configs', 'inputs', 'archive', 'homepage'} or re.fullmatch(r'\[task [1-9]\d*\]\[\d{8}\].+', child.name)):
+                if child.is_dir() and (child.name in {'src', 'tests', 'configs', 'inputs', 'archive', 'homepage', 'transfer-history'} or re.fullmatch(r'\[task [1-9]\d*\]\[\d{8}\].+', child.name)):
                     continue
                 failures.append(f'项目根出现未登记资产：{child}')
         for readme in project_readmes(root):

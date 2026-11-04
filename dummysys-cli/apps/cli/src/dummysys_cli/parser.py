@@ -64,7 +64,7 @@ def build_parser():
         else:
             argument(child, 'operation', required=True)
     for group, commands in {
-        'project': ['list', 'show', 'create', 'update', 'pause', 'resume', 'rename', 'archive', 'unarchive', 'delete', 'undelete', 'sync'],
+        'project': ['list', 'show', 'create', 'update', 'pause', 'resume', 'rename', 'archive', 'unarchive', 'delete', 'undelete', 'sync', 'export', 'import'],
         'task': ['list', 'show', 'create', 'update', 'handoff', 'rename', 'move', 'archive', 'unarchive', 'delete', 'undelete'],
         'run': ['list', 'show', 'create', 'start', 'finish', 'update', 'rename', 'archive', 'unarchive', 'delete', 'undelete'],
         'repo': ['list', 'show', 'register', 'bind', 'link', 'resolve', 'snapshot'],
@@ -77,7 +77,17 @@ def build_parser():
             if command == 'show' or group == 'operation' and command == 'recover':
                 p.add_argument('id')
             if group == 'project':
-                if command == 'sync':
+                if command == 'export':
+                    argument(p, 'project', required=True)
+                    argument(p, 'output', help='新资料包的绝对路径；已存在拒绝覆盖')
+                    argument(p, 'include_resource', action='append', default=[], help='额外收入包中的项目资源相对路径')
+                    argument(p, 'dry_run', action='store_true', help='仅列出数量、依赖和排除项，不生成包')
+                elif command == 'import':
+                    argument(p, 'bundle', required=True, help='资料包的绝对路径')
+                    argument(p, 'repo_path', dest='repo_paths', action='append', default=[], help='repo_id=本机 checkout 绝对路径')
+                    argument(p, 'dry_run', action='store_true')
+                    argument(p, 'if_plan')
+                elif command == 'sync':
                     argument(p, 'project')
                     argument(p, 'apply', action='store_true')
                 elif command == 'create':

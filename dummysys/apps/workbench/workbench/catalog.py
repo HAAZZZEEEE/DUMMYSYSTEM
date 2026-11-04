@@ -7,6 +7,7 @@ web 模块不直接访问任意文件系统路径。项目发现只读取 runtim
 from __future__ import annotations
 
 from dummysys_core import locations as loc
+from dummysys_core.operations import native_path as io_path
 
 import hashlib
 import json
@@ -566,7 +567,7 @@ class Catalog:
         if len(found) >= SEARCH_LIMITS["file"]:
             return
         try:
-            names = sorted(os.listdir(current), key=lambda n: (natural_key(n), n))
+            names = sorted(os.listdir(io_path(current)), key=lambda n: (natural_key(n), n))
         except OSError:
             return
         rel_dir = self._rel_of(base, current)
@@ -659,7 +660,7 @@ class Catalog:
                 raise BlockedLink("目录链接越出登记子路径，已阻止浏览")
             navigation = access == "navigation" or actual_access == "navigation"
             try:
-                info = resolved.stat()
+                info = io_path(resolved).stat()
                 kind = "dir" if stat_module.S_ISDIR(info.st_mode) else "file"
             except (FileNotFoundError, NotADirectoryError):
                 kind = "missing"
@@ -758,8 +759,8 @@ class Catalog:
         entries: list[dict] = []
         fingerprints = []
         try:
-            before = self._stat_version(path.stat())
-            names = sorted(os.listdir(path), key=lambda n: (natural_key(n), n))
+            before = self._stat_version(io_path(path).stat())
+            names = sorted(os.listdir(io_path(path)), key=lambda n: (natural_key(n), n))
         except PermissionError as error:
             raise TargetForbidden("读取目录被拒绝") from error
         except (FileNotFoundError, NotADirectoryError) as error:
@@ -777,12 +778,12 @@ class Catalog:
             info = None
             is_link = False
             try:
-                link_info = entry_path.lstat()
+                link_info = io_path(entry_path).lstat()
                 is_link = stat_module.S_ISLNK(link_info.st_mode) or bool(getattr(link_info, "st_reparse_tag", 0))
                 fingerprints.append([name, self._stat_version(link_info)])
                 entry_target = self._target_for_root(resolved["project_id"], root, self._validate_relative(rel))
                 if entry_target["available"]:
-                    info = entry_path.stat()
+                    info = io_path(entry_path).stat()
                     fingerprints.append([name, self._stat_version(info)])
             except (FileNotFoundError, NotADirectoryError) as error:
                 raise StaleCursor("目录内容在读取时变化，请刷新后重试") from error
@@ -800,7 +801,7 @@ class Catalog:
             }
             entries.append(entry)
         try:
-            after = self._stat_version(path.stat())
+            after = self._stat_version(io_path(path).stat())
         except OSError as error:
             raise StaleCursor("目录在读取时变化，请刷新后重试") from error
         if before != after:
@@ -857,7 +858,7 @@ class Catalog:
     @staticmethod
     def _is_junction(path: Path) -> bool:
         try:
-            stat = path.lstat()
+            stat = io_path(path).lstat()
             if hasattr(stat, "st_reparse_tag"):
                 return bool(stat.st_reparse_tag)
         except OSError:

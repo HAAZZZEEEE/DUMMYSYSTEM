@@ -34,6 +34,11 @@ RUN_TRANSITIONS = {
 
 # 动作定义：action_name -> {params, requires_plan, version_kind, description}
 ACTIONS = {
+    'project.import': {
+        'params': {'bundle': STR, 'repo_paths': LIST},
+        'requires_plan': True, 'version_kind': None,
+        'description': '校验离线项目资料包，预演后受管导入；保留稳定身份并拒绝覆盖',
+    },
     'governance.relocate': {
         'params': {'project': STR, 'section': STR, 'reason': STR},
         'requires_plan': True, 'version_kind': 'project',

@@ -525,7 +525,8 @@ class Application:
             raise TargetForbidden(resolved.get('reason') or '此目标不能读取')
         path = Path(resolved['path'])
         try:
-            with path.open('rb') as stream:
+            from dummysys_core.operations import native_path
+            with native_path(path).open('rb') as stream:
                 raw = stream.read(MAX_READ_BYTES + 1)
         except PermissionError as error:
             raise TargetForbidden('读取目标被拒绝') from error
@@ -546,7 +547,7 @@ class Application:
         if text is None:
             text = raw.decode('utf-8', errors='replace')
         return {'target': resolved, 'text': text, 'truncated': truncated,
-                'size': path.stat().st_size if not truncated else len(raw)}
+                'size': native_path(path).stat().st_size if not truncated else len(raw)}
 
     # ---- 动作解析 ----
     def available_actions(self, target: dict) -> dict:

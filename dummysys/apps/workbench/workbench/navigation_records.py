@@ -2,6 +2,7 @@
 from pathlib import Path
 import re
 from . import metadata
+from dummysys_core.operations import native_path
 
 TASK_PATTERN = re.compile(r"\[task ([1-9]\d*)\]\[(\d{8})\](.+)")
 RUN_PATTERN = re.compile(r"\[(\d{8}-\d{6})\](.+)")
@@ -18,13 +19,13 @@ class NavigationRecords:
 
     def _nav_meta(self, path: Path) -> dict:
         try:
-            return metadata.frontmatter(path, self.error) if path.is_file() else {}
+            return metadata.frontmatter(path, self.error) if native_path(path).is_file() else {}
         except self.error:
             return {}
 
     def _nav_json(self, path: Path) -> dict:
         try:
-            data = metadata.read_json(path, self.error) if path.is_file() else {}
+            data = metadata.read_json(path, self.error) if native_path(path).is_file() else {}
         except self.error:
             return {}
         return data if isinstance(data, dict) else {}
@@ -33,6 +34,7 @@ class NavigationRecords:
                    owner_rel: str, include_deleted: bool = False) -> list[dict]:
         """owner_rel 是 runs 的父目录相对根路径；空串表示资源根下的 runs/。"""
         runs_dir = (root_path / owner_rel / "runs") if owner_rel else (root_path / "runs")
+        runs_dir = native_path(runs_dir)
         runs: list[dict] = []
         if not runs_dir.is_dir():
             return runs
@@ -85,8 +87,8 @@ class NavigationRecords:
         """docs/resources 根同名配对；返回 (tasks, orphan_runs, nav_hidden)。"""
         found: dict[str, dict] = {}
         hidden: list[dict] = []
-        docs_path = Path(docs["path"]) if docs else None
-        resources_path = Path(resources["path"]) if resources else None
+        docs_path = native_path(docs["path"]) if docs else None
+        resources_path = native_path(resources["path"]) if resources else None
 
         def hide(root_id: str, relative: str) -> None:
             hidden.append({"root_id": root_id, "relative_path": relative})

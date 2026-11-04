@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 from ._records import read_json, write_json, now
+from .operations import native_path
 
 
 def sidecar_path(run_record):
@@ -15,7 +16,7 @@ def sidecar_path(run_record):
 
 def read_sidecar(run_record):
     path = sidecar_path(run_record)
-    if not path.exists():
+    if not native_path(path).exists():
         return {'schema_version': 1, 'run_id': read_json(run_record).get('run_id')}
     return read_json(path)
 

@@ -11,7 +11,7 @@ from functools import wraps
 
 from . import __version__, _records as records, _repositories as repos, _entries as entries
 from ._paths import project_readmes, task_dirs
-from .operations import Operations, GovernanceError, digest, payload, workspace_lock
+from .operations import Operations, GovernanceError, digest, payload, workspace_lock, glob_paths, native_path
 from .telemetry import measured
 from .layout import governance_paths
 
@@ -127,7 +127,7 @@ class Workspace:
         _, resource, _ = records.locate_task(self.root, task)
         result = []
         seen = {}
-        for path in sorted(resource.glob('runs/*/run.json')):
+        for path in sorted(glob_paths(resource, 'runs/*/run.json')):
             raw = payload(path)
             value = json.loads(raw)
             if not isinstance(value,dict) or not isinstance(value.get('run_id'),str) or not value['run_id']:
@@ -142,7 +142,7 @@ class Workspace:
 
     def run_path(self, task, identity):
         _, resource, _ = records.locate_task(self.root, task)
-        found = [p for p in resource.glob('runs/*/run.json') if records.read_json(p).get('run_id') == identity]
+        found = [p for p in glob_paths(resource, 'runs/*/run.json') if records.read_json(p).get('run_id') == identity]
         if len(found) != 1:
             raise GovernanceError('NOT_FOUND', 'Run 应唯一匹配', run=identity)
         return found[0]
@@ -181,7 +181,7 @@ class Workspace:
             (rules['policy'], 'Vault、runtime 与 Repo 的存储边界', '选择存储位置或迁移资源'),
             (project / '目录索引.md', '完整文档清单；不代表审核通过', '需要查找非精选正文或历史'),
         ]
-        body = doc.read_text(encoding='utf-8')
+        body = native_path(doc).read_text(encoding='utf-8')
         goal = body.split('## 目标与完成条件', 1)[-1].split('\n## ', 1)[0].strip() if '## 目标与完成条件' in body else None
         if goal is None:
             missing.append('Task 缺少目标与完成条件段落')
@@ -202,7 +202,7 @@ class Workspace:
         for p in project_readmes(self.root):
             try:
                 for path, text in entries.expected(self.root, p.parent.name).items():
-                    if not path.exists() or path.read_text(encoding='utf-8') != text:
+                    if not native_path(path).exists() or native_path(path).read_text(encoding='utf-8') != text:
                         failures.append(f'项目入口待同步：{path}')
             except (ValueError, OSError) as error:
                 failures.append(str(error))
@@ -227,6 +227,9 @@ class Workspace:
         """dry-run：返回 plan_token 和依赖信息，无持久业务写入。"""
         from . import _migration as migrate
         params = dict(parameters)
+        if action == 'project.import':
+            from .transfer import plan_import
+            return plan_import(self, actor=actor, **params)
         if action in ('governance.relocate', 'governance.rollback'):
             from . import _governance
             with workspace_lock(self.root):
@@ -287,6 +290,10 @@ class Workspace:
                                       '迁移需两步：先 --dry-run 取 plan_token，再 --if-plan 提交')
         elif if_plan:
             raise GovernanceError('INVALID_ARGUMENT', '此操作不需要 --if-plan', action=action)
+        if action == 'project.import':
+            from .transfer import import_project
+            return import_project(self, actor=actor, request_id=request_id, if_plan=if_plan,
+                                  checkpoint=checkpoint, **params)
         if action in ('governance.relocate', 'governance.rollback'):
             from . import _governance
             return _governance.execute(self, action, params, actor, request_id, if_version, if_plan, checkpoint)

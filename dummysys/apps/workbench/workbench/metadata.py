@@ -3,6 +3,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 import json
 import yaml
+from dummysys_core.operations import native_path
 
 _active=ContextVar('metadata_reads', default=None)
 
@@ -29,14 +30,14 @@ def _memo(kind,path,load):
 
 def read_json(path,error):
     def load():
-        try: return json.loads(path.read_text(encoding='utf-8'))
+        try: return json.loads(native_path(path).read_text(encoding='utf-8'))
         except (OSError,ValueError) as exc: raise error(f'无法读取 JSON {path}：{exc}') from exc
     return _memo('json',path,load)
 
 
 def frontmatter(path,error):
     def load():
-        with path.open(encoding='utf-8-sig') as stream:
+        with native_path(path).open(encoding='utf-8-sig') as stream:
             if stream.readline().strip() != '---': return {}
             lines=[]
             for line in stream:

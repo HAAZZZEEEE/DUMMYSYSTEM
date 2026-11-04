@@ -194,6 +194,8 @@ def _render_front(props, raw_front):
 
 
 def read(path):
+    from .operations import native_path
+    path = native_path(path)
     text = path.read_text(encoding='utf-8')
     props, body, _ = parse(text)
     return props
@@ -201,6 +203,8 @@ def read(path):
 
 def update(path, values):
     """就地更新 frontmatter 键，保留注释、未知字段和正文。"""
+    from .operations import native_path
+    path = native_path(path)
     text = path.read_text(encoding='utf-8')
     props, body, raw_front = parse(text)
     # 检查重复键在 parse 已做
