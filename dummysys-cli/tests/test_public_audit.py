@@ -9,6 +9,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location("audit_public", Path(__file__).resolve().parents[1] / "scripts/audit_public.py")
 audit = importlib.util.module_from_spec(spec)
@@ -83,4 +84,38 @@ class PublicAuditTests(unittest.TestCase):
         self.commit()
         self.assertEqual(self.scan()[0], 1)
         self.assertEqual(self.scan(["--git-history"])[0], 0)
+
+    def test_sensitive_historical_filename_is_detected_without_echo(self):
+        old = self.root / "synthetic-value-42.md"
+        old.write_text("clean", encoding="utf-8")
+        self.commit()
+        old.rename(self.root / "README.md")
+        self.commit()
+        code, report = self.scan(["--git-history"])
+        self.assertEqual(code, 1)
+        self.assertTrue(any(f.get("location") == "filename" for f in report["unresolved"]))
+        self.assertNotIn("synthetic-value-42", json.dumps(report))
+
+    def test_replace_ref_cannot_hide_original_blob(self):
+        source = self.root / "README.md"
+        source.write_text("synthetic-value-42", encoding="utf-8")
+        self.commit()
+        old = self.git("rev-parse", "HEAD:README.md").decode().strip()
+        source.write_text("clean", encoding="utf-8")
+        self.commit()
+        new = self.git("rev-parse", "HEAD:README.md").decode().strip()
+        self.git("replace", old, new)
+        self.assertEqual(self.git("cat-file", "blob", old), b"clean")
+        code, report = self.scan(["--git-history"])
+        self.assertEqual(code, 1)
+        self.assertTrue(any(f.get("path", "").startswith("git:" + old) for f in report["unresolved"]))
+
+    def test_incomplete_git_audit_cannot_be_reviewed_as_passed(self):
+        reviewed = self.base / "reviewed.json"
+        reviewed.write_text(json.dumps([dict(rule="git_history_unavailable", reason="invalid exemption")]), encoding="utf-8")
+        with patch.object(audit, "git_entries", side_effect=ValueError("unavailable")):
+            code, report = self.scan(["--git-history", "--reviewed", str(reviewed)])
+        self.assertEqual(code, 1)
+        self.assertEqual(report["reviewed"], [])
+        self.assertIn(dict(rule="git_history_unavailable"), report["unresolved"])
 

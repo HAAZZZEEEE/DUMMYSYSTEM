@@ -15,6 +15,7 @@ IP = re.compile(r"(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])")
 INTERNAL = re.compile(r"(?i)(?:https?://[^\s/'\"]+\.(?:internal|intranet|corp)(?:[/:]|$)|https?://[^/@\s]+:[^/@\s]+@)")
 FORBIDDEN = {".git", ".venv", "__pycache__", "runtime", "node_modules"}
 ALLOWED_SUFFIXES = {".py",".md",".txt",".json",".toml",".js",".css",".html",".lock",".svg",".spec"}
+REVIEWABLE = {"private_home_path", "credential_shape", "internal_service", "private_deny_token", "private_network_address"}
 
 
 def source_entries(root, git_history):
@@ -35,7 +36,7 @@ def source_entries(root, git_history):
 def git_entries(root):
     """检查本地全部 Git 对象，包括不可达提交；不执行仓库中的任何钩子。"""
     def git(*arguments):
-        process = subprocess.run(["git", "-C", str(root), *arguments], capture_output=True)
+        process = subprocess.run(["git", "--no-replace-objects", "-C", str(root), *arguments], capture_output=True)
         if process.returncode:
             raise ValueError("Git 对象读取失败；检查仓库完整性，原始错误不写入公开报告")
         return process.stdout
@@ -60,7 +61,7 @@ def git_entries(root):
             if mode not in ("100644", "100755") or set(Path(name).parts) & FORBIDDEN or (Path(name).suffix not in ALLOWED_SUFFIXES and Path(name).name != ".gitignore"):
                 yield f"git:{oid}/{name}", b"", None, "unexpected_git_entry"
     for oid, kind in objects:
-        if kind not in ("blob", "commit", "tag"):
+        if kind not in ("blob", "commit", "tag", "tree"):
             continue
         data = git("cat-file", kind, oid)
         if kind == "blob":
@@ -101,6 +102,16 @@ def inspect(name, data, deny):
     return findings
 
 
+def checked_name(name, deny, findings):
+    """名称同样脱敏；命中时仅输出名称哈希，报告不复述敏感文件名。"""
+    opaque = "path-sha256:" + hashlib.sha256(name.encode("utf-8")).hexdigest()
+    issues = inspect(opaque, name.encode("utf-8"), deny)
+    if issues:
+        findings.extend(dict(item, location="filename") for item in issues)
+        return opaque
+    return name
+
+
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, required=True)
@@ -116,17 +127,19 @@ def main(argv=None):
         parser.error("拒绝词表必须是非空字符串的数组")
     findings=[]; hashes={}; wheels={}; count=0; history={}; review_paths={}
     for p in sorted(source_entries(root, args.git_history)):
-        if p.is_symlink() or (hasattr(p,"is_junction") and p.is_junction()):
-            findings.append(dict(path=p.relative_to(root).as_posix(),rule="source_link")); continue
-        if not p.is_file(): continue
         relative=p.relative_to(root)
+        name=checked_name(relative.as_posix(),deny,findings)
+        if p.is_symlink() or (hasattr(p,"is_junction") and p.is_junction()):
+            findings.append(dict(path=name,rule="source_link")); continue
+        if not p.is_file(): continue
         if set(relative.parts) & FORBIDDEN or (p.suffix not in ALLOWED_SUFFIXES and p.name != ".gitignore"):
-            findings.append(dict(path=relative.as_posix(),rule="unexpected_source_file"))
-        data=p.read_bytes();name=relative.as_posix();hashes[name]=hashlib.sha256(data).hexdigest()
+            findings.append(dict(path=name,rule="unexpected_source_file"))
+        data=p.read_bytes();hashes[name]=hashlib.sha256(data).hexdigest()
         findings.extend(inspect(name,data,deny));count+=1
     if args.git_history:
         try:
             for name, data, original, problem in git_entries(root):
+                name=checked_name(name,deny,findings)
                 history[name]=hashlib.sha256(data).hexdigest()
                 if original:
                     review_paths[name]=original
@@ -137,12 +150,14 @@ def main(argv=None):
             findings.append(dict(rule="git_history_unavailable"))
     if args.wheels:
         for p in sorted(args.wheels.glob("dummysys_*.whl")):
-            wheels[p.name]=hashlib.sha256(p.read_bytes()).hexdigest()
+            wheel_name=checked_name(p.name,deny,findings)
+            wheels[wheel_name]=hashlib.sha256(p.read_bytes()).hexdigest()
             with zipfile.ZipFile(p) as archive:
                 for name in archive.namelist():
                     if name.endswith("/"):continue
-                    if name.endswith((".pyc",".pyo")):findings.append(dict(path=p.name+"!"+name,rule="compiled_source"))
-                    findings.extend(inspect(p.name+"!"+name,archive.read(name),deny));count+=1
+                    display=checked_name(p.name+"!"+name,deny,findings)
+                    if name.endswith((".pyc",".pyo")):findings.append(dict(path=display,rule="compiled_source"))
+                    findings.extend(inspect(display,archive.read(name),deny));count+=1
         if len(wheels)!=3:findings.append(dict(rule="expected_three_project_wheels"))
     reviewed=[]
     decisions=json.loads(args.reviewed.read_text(encoding='utf-8')) if args.reviewed else []
@@ -150,7 +165,8 @@ def main(argv=None):
     for finding in findings:
         name=finding.get('path')
         file_hash=hashes.get(name) or history.get(name)
-        decision=next((d for d in decisions if d.get('path')==review_paths.get(name,name) and d.get('line')==finding.get('line')
+        decision=next((d for d in decisions if file_hash and finding.get('rule') in REVIEWABLE and not finding.get('location')
+                       and d.get('path')==review_paths.get(name,name) and d.get('line')==finding.get('line')
                        and d.get('rule')==finding.get('rule') and d.get('sha256')==file_hash and d.get('reason')),None)
         if decision:
             reviewed.append(dict(**finding,reason=decision['reason'],sha256=file_hash))
