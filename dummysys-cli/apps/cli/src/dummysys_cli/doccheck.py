@@ -48,8 +48,21 @@ def check_docs(workspace, roots=None):
     failures=[]
     if roots is None:
         roots=[workspace]
+        selection=loc.runtime(workspace) / 'state/workspace/doccheck.json'
         mapping=loc.runtime(workspace) / 'state/workspace/repositories.json'
-        if mapping.exists():
+        if selection.exists():
+            try:
+                data=json.loads(selection.read_text(encoding='utf-8-sig'))
+                if not isinstance(data,dict) or data.get('schema_version') != 1:
+                    raise ValueError('文档检查配置须为 schema_version=1 的对象')
+                selected=data.get('roots')
+                if not isinstance(selected,list) or not all(isinstance(p,str) and p.strip() for p in selected):
+                    raise ValueError('roots 必须是非空路径字符串的数组')
+                # 相对路径以工作区为基准；本机源码绑定不进入公开源码。
+                roots.extend(Path(p) if Path(p).is_absolute() else workspace/p for p in selected)
+            except (OSError,ValueError,TypeError) as error:
+                failures.append(dict(code='DOC_ROOTS_INVALID',path=str(selection),message=str(error)))
+        elif mapping.exists():
             try:
                 data=json.loads(mapping.read_text(encoding='utf-8-sig'))
                 if not isinstance(data,dict) or not isinstance(data.get('checkouts'),dict): raise ValueError('仓库映射必须包含 checkouts 对象')
