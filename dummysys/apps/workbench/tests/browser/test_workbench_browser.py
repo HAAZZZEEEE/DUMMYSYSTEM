@@ -272,8 +272,16 @@ class WorkbenchBrowserTests(BrowserCase):
         handle = self.page.get_by_test_id("sidebar-resizer")
         sidebar = self.page.locator(".sidebar")
         base = sidebar.evaluate("e => e.getBoundingClientRect().width")
+        def width_saved(response, reset=False):
+            if (not response.url.endswith('/api/v1/preferences')
+                    or response.request.method != 'PATCH' or response.status != 200):
+                return False
+            patch = response.request.post_data_json
+            return isinstance(patch, dict) and 'sidebar_width' in patch and (
+                patch['sidebar_width'] is None if reset else isinstance(patch['sidebar_width'], int))
+
         handle.focus()
-        with self.page.expect_response(lambda response: response.url.endswith('/api/v1/preferences') and response.request.method == 'PATCH' and isinstance(response.request.post_data_json.get('sidebar_width'), int)):
+        with self.page.expect_response(width_saved):
             self.page.keyboard.press("ArrowRight")
         grown = sidebar.evaluate("e => e.getBoundingClientRect().width")
         self.assertAlmostEqual(grown, min(base + 16, 640), delta=1)
@@ -281,7 +289,10 @@ class WorkbenchBrowserTests(BrowserCase):
         self.page.reload()
         self.ready()
         self.assertAlmostEqual(sidebar.evaluate("e => e.getBoundingClientRect().width"), grown, delta=1)
-        with self.page.expect_response(lambda response: response.url.endswith('/api/v1/preferences') and response.request.method == 'PATCH' and response.request.post_data_json.get('sidebar_width') is None):
+        # 另一个窗口写入后可能先收到 409；等待自动重试的成功响应。
+        # last_location 等不含宽度字段的 PATCH 不能算重置完成。
+        self.application.save_preferences({"theme": "dark"})
+        with self.page.expect_response(lambda response: width_saved(response, reset=True)):
             handle.dblclick()
         self.assertIsNone(self.application.load_preferences()["sidebar_width"])
         self.assertAlmostEqual(sidebar.evaluate("e => e.getBoundingClientRect().width"), base, delta=1)
