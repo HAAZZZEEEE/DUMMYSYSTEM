@@ -9,6 +9,9 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from packaging_env import packaging_environment
+
 
 def atomic(path, text):
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -86,11 +89,7 @@ def main(argv=None):
         if value.get("schema_version") != 1 or Path(value.get("workspace", "")).resolve() != root:
             raise ValueError("既有配置指向其他工作区，已保留原文件")
     evidence.mkdir(parents=True)
-    env = os.environ.copy()
-    for key in ("PYTHONPATH", "DMY_CONFIG", "DMY_EXE"):
-        env.pop(key, None)
-    env.update(PIP_CACHE_DIR=str(runtime / "cache/pip"), TEMP=str(runtime / "tmp"), TMP=str(runtime / "tmp"),
-               PYTHONDONTWRITEBYTECODE="1")
+    env = packaging_environment(runtime)
     (runtime / "tmp").mkdir(exist_ok=True)
     def run(command, log):
         process = subprocess.run(command, env=env, capture_output=True)
@@ -99,7 +98,7 @@ def main(argv=None):
             raise ValueError(f"安装步骤 {log} 失败（{process.returncode}）；保留现场，请使用新 release-id 重试")
         return process.stdout
     # 使用宿主 pip 驱动目标解释器，避免 ensurepip 在深层路径解包自身。
-    run([sys.executable, "-m", "venv", "--without-pip", str(destination)], "venv.log")
+    run([sys.executable, "-I", "-m", "venv", "--without-pip", str(destination)], "venv.log")
     python = destination / "Scripts/python.exe"
     run([sys.executable, "-I", "-m", "pip", "--python", str(python), "install", "--disable-pip-version-check", "--no-compile", "--no-index", "--find-links", str(wheels), *map(str, packages)], "install.log")
     run([str(python), "-I", "-B", "-m", "dummysys_cli", "capabilities", "--json"], "installed-capabilities.json")

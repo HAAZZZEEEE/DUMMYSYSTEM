@@ -2,13 +2,14 @@
 import argparse
 import hashlib
 import json
-import os
 from pathlib import Path
 import shutil
 import subprocess
 import sys
 
 CLI_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from packaging_env import packaging_environment
 
 
 def package_roots(workbench_root=None):
@@ -44,10 +45,7 @@ def main(argv=None):
     if output.exists():
         parser.error("输出目录已存在；使用新目录保留历史构建")
     output.mkdir(parents=True)
-    env = os.environ.copy()
-    env.pop('PYTHONPATH', None)
-    env.update(PIP_CACHE_DIR=str(output / "cache"), TEMP=str(output / "tmp"), TMP=str(output / "tmp"),
-               PYTHONDONTWRITEBYTECODE="1")
+    env = packaging_environment(output)
     (output / "tmp").mkdir()
     (output / "wheels").mkdir()
     def run(command, name, cwd=None):
@@ -69,7 +67,7 @@ def main(argv=None):
         staged.append(str(destination))
     # 直接调用构建后端，避免 pip 临时缓存额外嵌套的长路径。
     for i, stage in enumerate(staged):
-        run([str(python), "-B", "-c", "import sys; from setuptools.build_meta import build_wheel; build_wheel(sys.argv[1])",
+        run([str(python), "-I", "-B", "-c", "import sys; from setuptools.build_meta import build_wheel; build_wheel(sys.argv[1])",
              str(output / "wheels")], f"package-{i}", cwd=stage)
     built = sorted((output / "wheels").glob("*.whl"))
     run([*pip, "download", "--disable-pip-version-check", "--only-binary=:all:", *dependency_options,
