@@ -211,10 +211,11 @@ class WorkbenchBrowserTests(BrowserCase):
     def test_page_declares_served_workbench_icon(self):
         self.project()
         icon = self.page.locator('link[rel="icon"]')
-        expect(icon).to_have_attribute("href", "/icons/app-icon.png")
-        response = self.page.request.get(self.origin + "/icons/app-icon.png")
+        expect(icon).to_have_attribute("href", "/icons/app-icon.svg")
+        expect(icon).to_have_attribute("type", "image/svg+xml")
+        response = self.page.request.get(self.origin + "/icons/app-icon.svg")
         self.assertEqual(response.status, 200)
-        self.assertEqual(response.headers.get("content-type"), "image/png")
+        self.assertTrue(response.headers.get("content-type", "").startswith("image/svg+xml"))
 
     def test_copy_success_records_exact_native_path(self):
         self.project()
