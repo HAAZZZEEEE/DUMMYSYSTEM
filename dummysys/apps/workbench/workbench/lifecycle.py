@@ -22,6 +22,7 @@ from uuid import uuid4
 from .instance_control import InstanceMutex, PipeControl
 from .windows_identity import process_identity, identity_matches, current_user_sid, process_alive
 from .processes import spawn_background
+from .file_io import write_json
 
 APP_ID = "dummysys.workbench"
 SCHEMA_VERSION = 1
@@ -41,16 +42,6 @@ def read_json(path: Path) -> dict:
         return value if isinstance(value, dict) else {}
     except (OSError, ValueError, RecursionError):
         return {}
-
-
-def write_json(path: Path, value: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
-    try:
-        temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        os.replace(temporary, path)
-    finally:
-        temporary.unlink(missing_ok=True)
 
 
 def find_free_port() -> int:

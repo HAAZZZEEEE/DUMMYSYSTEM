@@ -136,12 +136,15 @@ class StorageTests(unittest.TestCase):
             monitor.snapshot(refresh=True)
             self.assertEqual(len(calls), 2)
 
-    def wait_finished(self, monitor):
+    def wait_finished(self, monitor, projects=False):
         import time
         deadline = time.monotonic() + 3
-        while monitor.snapshot()['refreshing'] and time.monotonic() < deadline:
+        def busy():
+            state = monitor.snapshot()
+            return state['refreshing'] or (projects and state['projects_refreshing'])
+        while busy() and time.monotonic() < deadline:
             threading.Event().wait(.005)
-        self.assertFalse(monitor.snapshot()['refreshing'])
+        self.assertFalse(busy())
 
     def test_corrupt_cache_recovers(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -164,5 +167,5 @@ class StorageHttpTests(WebTestBase):
         self.assertEqual(self.client.post('/api/v1/storage/refresh').status_code, 403)
         response = self.client.post('/api/v1/storage/refresh', headers={'X-CSRF-Token': csrf})
         self.assertEqual(response.status_code, 200)
-        StorageTests().wait_finished(self.application.storage)
+        StorageTests().wait_finished(self.application.storage, projects=True)
         self.assertIsNotNone(self.client.get('/api/v1/storage').get_json()['data']['sample'])

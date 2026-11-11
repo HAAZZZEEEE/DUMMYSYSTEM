@@ -13,3 +13,5 @@ CLI/core 投影与 Workbench 必须配套安装。应用缺失、配置位置与
 多仓库与长名称根选项卡使用 tests/browser/test_root_tabs.py：验证代码仓库下拉列表的长名称完整换行、菜单边界及纵向滚动、当前选择、键盘开关与选择、点击外部关闭、窗口尺寸变化、单仓库和跨项目切换；同时回归 test_root_context.py 与 test_workbench_browser.py 中的历史导航用例。自动化夹具的 RecordingOpener 不替代真实应用打开验证。
 
 选中动画回归直接统计浏览器 animationstart/animationend：延迟加载完成后保持一次播放，刷新和重复点击当前分类不重播。
+
+tests/test_file_io.py 使用真实 Windows 文件句柄覆盖偏好、实例与统计缓存三处保存：短时占用释放后写入成功，持续占用明确报错并保留旧值，临时文件被清理。它不识别实际占用进程，也不承诺绕过持久权限限制。统计 HTTP 测试收尾须等待容量与项目两个后台任务结束，再清理夹具。

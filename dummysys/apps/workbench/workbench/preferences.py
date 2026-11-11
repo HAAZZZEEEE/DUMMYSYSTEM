@@ -3,13 +3,12 @@ from __future__ import annotations
 
 import json
 import hashlib
-import os
 import re
-import tempfile
 import threading
 from pathlib import Path, PureWindowsPath
 
 from .catalog import CatalogError, InvalidTarget
+from .file_io import write_json
 
 
 class PreferenceConflict(CatalogError):
@@ -174,17 +173,5 @@ class Preferences:
             if expected_revision is not None and expected_revision != self.revision(data):
                 raise PreferenceConflict('偏好已在其他窗口更新，请重试')
             data.update(update)
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            tmp = None
-            try:
-                with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8',
-                                                 dir=self.path.parent, suffix='.tmp', delete=False) as stream:
-                    tmp = Path(stream.name)
-                    json.dump(data, stream, ensure_ascii=False, indent=2)
-                    stream.flush()
-                    os.fsync(stream.fileno())
-                os.replace(tmp, self.path)
-            finally:
-                if tmp is not None:
-                    tmp.unlink(missing_ok=True)
+            write_json(self.path, data)
             return data

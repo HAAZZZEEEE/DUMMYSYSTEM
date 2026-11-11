@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dummysys_core import locations as loc
+from .file_io import write_json
 
 import json
 import os
@@ -75,12 +76,9 @@ class StorageMonitor:
             return True
 
     def _save_locked(self):
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = self.path.with_suffix('.tmp')
-        temporary.write_text(json.dumps({'schema_version': 1, 'workspace': str(self.workspace),
-                                          'sample': self._sample, 'ranking': self._ranking,
-                                          'scan_version': 4, 'locations': loc.load(self.workspace).as_dict()}), encoding='utf-8')
-        os.replace(temporary, self.path)
+        write_json(self.path, {'schema_version': 1, 'workspace': str(self.workspace),
+                              'sample': self._sample, 'ranking': self._ranking,
+                              'scan_version': 4, 'locations': loc.load(self.workspace).as_dict()})
 
     def _collect_projects(self):
         try:
