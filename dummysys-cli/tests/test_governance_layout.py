@@ -9,16 +9,21 @@ from uuid import uuid4
 
 from dummysys_core import _entries
 from dummysys_core.layout import governance_paths
-from dummysys_core.operations import GovernanceError
+from dummysys_core.operations import GovernanceError, native_path, payload
 from dummysys_core.workspace import Workspace
 from dummysys_cli.doccheck import check_docs
 
 
 class GovernanceLayoutTests(unittest.TestCase):
     def setUp(self):
-        temp = tempfile.TemporaryDirectory()
+        temp = tempfile.TemporaryDirectory(dir=str(native_path(Path(tempfile.gettempdir()))))
         self.addCleanup(temp.cleanup)
-        self.root = Path(temp.name).resolve()
+        self.root = Path(temp.name.removeprefix('\\\\?\\')).resolve()
+        self.prepare_workspace(self.root)
+
+    def prepare_workspace(self, root):
+        self.root = root
+        root.mkdir(parents=True, exist_ok=True)
         (self.root / 'dmy_vault').mkdir()
         self.ws = Workspace(self.root)
         self.pid = self.mutate('project.create', dict(title='治理夹具', created='2026-10-24'))['project_id']
@@ -53,6 +58,21 @@ class GovernanceLayoutTests(unittest.TestCase):
         result = self.ws.mutate('governance.relocate', params, actor='tester', request_id=request,
             if_plan=plan['plan_token'], if_version=version)
         return params, plan, version, request, result
+
+    @unittest.skipUnless(os.name == 'nt', 'Windows 长路径')
+    def test_rollback_reads_long_snapshot_through_shared_io(self):
+        root = self.root / ('deep' * max(1, (146 - len(str(self.root))) // 4))
+        self.prepare_workspace(root)
+        before = payload(root / '.dummysys-docs.json')
+        _, _, _, _, result = self.relocate('entry')
+        operation = result['operation_id']
+        snapshots = list(native_path(self.ws.operations.base / operation).glob('governance-*.before'))
+        self.assertTrue(snapshots)
+        self.assertGreater(max(len(str(p).removeprefix('\\\\?\\')) for p in snapshots), 260)
+        params = dict(project=self.pid, operation=operation, reason='验证长快照恢复')
+        preview = self.ws.plan('governance.rollback', params, actor='tester')
+        self.mutate('governance.rollback', params, self.ws.project(self.pid)['version'], if_plan=preview['plan_token'])
+        self.assertEqual(payload(root / '.dummysys-docs.json'), before)
 
     def test_content_is_not_execution_and_sync_preserves_custom_rules(self):
         topic = self.docs / '专题/README.md'

@@ -88,14 +88,14 @@ class MigrationJournal:
         self.data = {'schema_version': 1, 'stage': 'prepared', 'steps': [], 'operation_id': operation_id}
 
     def load(self):
-        if self.path.exists():
-            self.data = json.loads(self.path.read_text(encoding='utf-8'))
+        data = payload(self.path)
+        if data is not None:
+            self.data = json.loads(data)
         return self.data
 
     def record(self, stage, detail=None):
         self.data['stage'] = stage
         self.data['steps'].append({'stage': stage, 'at': time.time(), 'detail': detail or {}})
-        self.folder.mkdir(parents=True, exist_ok=True)
         save(self.path, self.data)
 
     def set_stage(self, stage):

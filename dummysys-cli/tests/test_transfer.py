@@ -328,7 +328,8 @@ class TransferTests(unittest.TestCase):
     def test_long_names_import_context_and_navigation(self):
         pid = self.write(self.source, 'project.create', title='深层资料项目' * 4)['project_id']
         tid = self.write(self.source, 'task.create', project=pid, title='长名称资料接续' * 4, origin='user', goal='长路径')['task_id']
-        rid = self.write(self.source, 'run.create', task=tid, title='完整执行验证记录' * 4, host='local', source='fixture', inputs='fixture', command='fixture')['run_id']
+        # 文件名本身使目标超过 260 字符，不依赖测试器的临时根碰巧足够长。
+        rid = self.write(self.source, 'run.create', task=tid, title='完整执行验证记录' * 20, host='local', source='fixture', inputs='fixture', command='fixture')['run_id']
         self.write(self.source, 'run.start', task=tid, run=rid)
         record = Path(self.source.run(tid, rid)['record'])
         evidence = record.parent / 'result.txt'

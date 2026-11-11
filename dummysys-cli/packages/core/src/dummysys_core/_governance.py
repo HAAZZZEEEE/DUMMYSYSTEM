@@ -111,9 +111,10 @@ def _finish(ws, value, journal):
                 path.unlink(missing_ok=True)
             else:
                 backup = folder / item['blob']
-                if backup.parent != folder or digest(payload(backup)) != item['sha256']:
+                data = payload(backup) if backup.parent == folder else None
+                if data is None or digest(data) != item['sha256']:
                     raise GovernanceError('RECOVERY_CORRUPT', '回滚快照损坏', path=relative)
-                atomic_write(path, backup.read_bytes())
+                atomic_write(path, data)
         _hardlink(root, governance_paths(root)['instructions'], [before.get('AGENTS.md', {}).get('sha256')])
         return
     config = manifest(root)

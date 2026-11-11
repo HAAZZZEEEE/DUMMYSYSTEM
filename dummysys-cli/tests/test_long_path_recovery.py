@@ -55,7 +55,8 @@ class RecoveryTests(unittest.TestCase):
     @unittest.skipUnless(os.name == 'nt', 'Windows 长路径契约')
     def test_hash_tree_includes_over_260_characters(self):
         root = Path(tempfile.mkdtemp())
-        extended = Path('\\\\?\\' + str(root))
+        from dummysys_core.operations import native_path
+        extended = native_path(root)
         try:
             item = extended / ('a' * 100) / ('b' * 100) / ('c' * 60) / 'proof.txt'
             item.parent.mkdir(parents=True)
