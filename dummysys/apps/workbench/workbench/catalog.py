@@ -7,7 +7,7 @@ web 模块不直接访问任意文件系统路径。项目发现只读取 runtim
 from __future__ import annotations
 
 from dummysys_core import locations as loc
-from dummysys_core.operations import native_path as io_path
+from dummysys_core.operations import GovernanceError, native_path as io_path
 
 import hashlib
 import json
@@ -200,13 +200,10 @@ class Catalog:
             yield entry, binding
 
     def _project_docs_root(self, binding: dict) -> Path | None:
-        raw = binding.get("docs_root")
-        if not raw:
+        if not binding.get("docs_root"):
             return None
-        path = Path(str(raw))
-        if not path.is_absolute():
-            path = loc.resolve(self.workspace_root, path)
-        return path.resolve()
+        root = self._project_root(binding, "docs", "文档")
+        return Path(self._target_for_root(binding["project_id"], root, "")["path"])
 
     @_synchronized
     def list_projects(self, query: str | None = None, include_archived: bool = False) -> dict:
@@ -250,7 +247,7 @@ class Catalog:
                     "created": str(meta.get("created") or ''),
                     "deleted": deleted,
                     "docs_root": docs_root.as_posix(),
-                    "resource_root": loc.resolve(self.workspace_root, resource_raw.replace("\\", "/")).resolve().as_posix(),
+                    "resource_root": self._target_for_root(json_id, self._project_root(binding, "resources", "项目资源"), "")["path"],
                 })
             except (CatalogError, OSError, ValueError) as error:
                 diagnostics.append({"project": name, "code": "PROJECT_META_ERROR", "message": str(error)})
@@ -292,22 +289,27 @@ class Catalog:
         root = root.resolve()
         return root, f"repo:{repo_id}"
 
+    def _project_root(self, binding: dict, kind: str, label: str) -> dict:
+        """把绑定解析成目录根；坏引用保留为不可访问项，不降级为任意本机路径。"""
+        key = "docs_root" if kind == "docs" else "resource_root"
+        raw = binding.get(key)
+        if not isinstance(raw, str) or not raw:
+            raise RootNotFound(f"项目缺少 {key}：{binding.get('project_id')}")
+        root = {"root_id": kind, "kind": kind, "label": label, "path": None}
+        try:
+            reference = Path(raw.replace("\\", "/"))
+            # 兼容旧绝对绑定，但仍按声明的目录边界检查。
+            path = reference if reference.is_absolute() else loc.resolve(self.workspace_root, reference)
+            root.update(path=path.as_posix(), _boundary=loc.boundary(self.workspace_root, reference).as_posix())
+        except (GovernanceError, ValueError) as error:
+            root["_forbidden"] = str(error)
+        return root
+
     def _roots_for_binding(self, binding: dict) -> list[dict]:
         roots: list[dict] = []
-        docs_root = self._project_docs_root(binding)
-        if docs_root:
-            roots.append({
-                "root_id": "docs", "kind": "docs", "label": "文档",
-                "path": docs_root.as_posix(), "_boundary": loc.boundary(self.workspace_root, binding['docs_root']).as_posix(),
-            })
-        resource_raw = binding.get("resource_root")
-        if not resource_raw:
-            raise RootNotFound(f"项目缺少 resource_root：{binding.get('project_id')}")
-        resource_root = loc.resolve(self.workspace_root, resource_raw.replace("\\", "/"))
-        roots.append({
-            "root_id": "resources", "kind": "resources", "label": "项目资源",
-            "path": resource_root.resolve().as_posix(), "_boundary": loc.boundary(self.workspace_root, resource_raw).as_posix(),
-        })
+        if binding.get("docs_root"):
+            roots.append(self._project_root(binding, "docs", "文档"))
+        roots.append(self._project_root(binding, "resources", "项目资源"))
         for repo in binding.get("repositories") or []:
             repo_id = repo.get("repo_id") if isinstance(repo, dict) else None
             if not repo_id:
@@ -378,9 +380,6 @@ class Catalog:
         if not isinstance(project_id, str) or not project_id.strip():
             raise InvalidTarget("缺少 project_id")
         _, roots = self.find_project(project_id)
-        docs = next((r for r in roots if r["kind"] == "docs"), None)
-        resources = next((r for r in roots if r["kind"] == "resources"), None)
-        tasks, orphans, hidden = self._scan_tasks(project_id, docs, resources)
         public_roots = []
         for root in roots:
             item = {k: v for k, v in root.items() if not k.startswith("_")}
@@ -390,6 +389,9 @@ class Catalog:
             except TargetForbidden as error:
                 item.update(native_path=None, available=False, reason=str(error), navigation_only=False)
             public_roots.append(item)
+        docs = next((r for r in public_roots if r["kind"] == "docs" and r["available"]), None)
+        resources = next((r for r in public_roots if r["kind"] == "resources" and r["available"]), None)
+        tasks, orphans, hidden = self._scan_tasks(project_id, docs, resources)
         return {"project_id": project_id, "tasks": [task for task in tasks if not task.get("deleted")],
                 "deleted_tasks": [task for task in tasks if task.get("deleted")], "orphan_runs": [run for run in orphans if not run.get("deleted")],
                 "nav_hidden": hidden, "roots": public_roots}
@@ -427,7 +429,10 @@ class Catalog:
 
     def _project_display(self, entry: Path, binding: dict) -> dict | None:
         """项目展示信息（复用 list_projects 的 README 元数据规则，失败则跳过）。"""
-        docs_root = self._project_docs_root(binding)
+        try:
+            docs_root = self._project_docs_root(binding)
+        except (CatalogError, OSError, ValueError):
+            return None
         if not docs_root:
             return None
         readme = docs_root / "README.md"
@@ -454,7 +459,16 @@ class Catalog:
             _, roots = self.find_project(project_id)
         except (CatalogError, TargetForbidden):
             return []
-        return [r for r in roots if r["kind"] in ("docs", "resources")]
+        available = []
+        for root in roots:
+            if root["kind"] not in ("docs", "resources"):
+                continue
+            try:
+                if self._target_for_root(project_id, root, "")["available"]:
+                    available.append(root)
+            except TargetForbidden:
+                continue
+        return available
 
     def _search_corpus(self, project_id: str | None) -> list[dict]:
         """构建 p/t/r 扁平语料；文件命中在 search 里按需扫描，不常驻缓存。"""
@@ -632,6 +646,8 @@ class Catalog:
         return "forbidden"
 
     def _target_for_root(self, project_id: str, root: dict, rel: str) -> dict:
+        if root.get("_forbidden"):
+            raise TargetForbidden(root["_forbidden"])
         base = Path(root["path"])
         allowed = root.get("subpaths") or [""]
         access = self._access(rel, allowed)

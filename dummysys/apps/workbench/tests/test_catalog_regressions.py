@@ -8,6 +8,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 from pathlib import Path
+from dummysys_core.operations import native_path
 
 from tests.helpers import build_workspace, write_json
 from tests.test_catalog import _create_dir_link
@@ -222,7 +223,7 @@ class CatalogRegressionTest(unittest.TestCase):
     def test_permission_denied_is_forbidden_not_missing(self):
         real_stat = Path.stat
         def denied(path, *args, **kwargs):
-            if path == self.docs / "denied":
+            if native_path(path) == native_path(self.docs / "denied"):
                 raise PermissionError("访问被拒绝")
             return real_stat(path, *args, **kwargs)
         (self.docs / "denied").mkdir()
@@ -302,6 +303,24 @@ class CatalogRegressionTest(unittest.TestCase):
                 target = self.bind_repo(paths)
                 with self.assertRaises(InvalidTarget):
                     self.catalog.resolve_target(target)
+
+    def test_invalid_project_roots_do_not_break_navigation_or_read_outside(self):
+        outside = self.base / "outside"
+        outside.mkdir()
+        for reference in ("../outside", str(outside)):
+            with self.subTest(reference=reference):
+                write_json(self.ws / "runtime/project_src/project/project.json", {
+                    "project_id": "p", "docs_root": reference, "resource_root": reference})
+                with patch('workbench.catalog._frontmatter', side_effect=AssertionError('outside read')):
+                    listed = self.catalog.list_projects()
+                    self.assertEqual(listed['projects'], [])
+                    self.assertEqual(len(listed['diagnostics']), 1)
+                    nav = self.catalog.list_project_nav('p')
+                    self.assertEqual(nav['tasks'], [])
+                    self.assertEqual(nav['orphan_runs'], [])
+                    self.assertTrue(all(not r['available'] for r in nav['roots']))
+                    self.catalog.refresh()
+                    self.assertEqual(self.catalog.search('outside')['results'], [])
 
 
 if __name__ == "__main__":
