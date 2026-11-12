@@ -3,6 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
+license = {file = "LICENSE.txt"}
 name = "dummysys-workbench"
 version = "0.5.0"
 description = "DUMMYSYS 工作台：以项目为入口的本地目录浏览与外部应用打开"
