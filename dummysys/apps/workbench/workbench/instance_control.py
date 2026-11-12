@@ -8,6 +8,7 @@ from pathlib import Path
 import threading
 import time
 
+from .control_protocol import ControlProtocol
 from .windows_identity import current_user_sid, identity_matches, process_identity
 
 
@@ -80,15 +81,11 @@ class InstanceMutex:
                 _close_handle(handle)
 
 
-class PipeControl:
+class PipeControl(ControlProtocol):
     """消息必须携带 expected_instance_id；写入前检查服务 PID/FILETIME/SID。
 
     采用非阻塞消息管道并设置操作期限，空闲或恶意客户端不能阻塞服务退出。
     """
-    REQUEST_TOKEN = "request-token"
-    REQUEST_STOP = "request-stop"
-    MAX_MESSAGE = 4096
-    CLIENT_TIMEOUT = 2.0
 
     def __init__(self, task_root: str):
         self.name = pipe_name(task_root)
@@ -187,24 +184,6 @@ class PipeControl:
         finally:
             _close_handle(handle)
             self._server_handle = None
-
-    def _dispatch(self, data: str) -> str:
-        try:
-            message = json.loads(data)
-        except (ValueError, TypeError):
-            message = None
-        response = {"instance_id": self._instance_id}
-        if not isinstance(message, dict):
-            response["error"] = "invalid-request"
-        elif message.get("expected_instance_id") != self._instance_id or not self._instance_id:
-            response["error"] = "instance-mismatch"
-        elif message.get("action") == self.REQUEST_TOKEN and self._token_provider:
-            response["token"] = self._token_provider()
-        elif message.get("action") == self.REQUEST_STOP:
-            response["stopping"] = True
-        else:
-            response["error"] = "unknown-action"
-        return json.dumps(response)
 
     def stop_server(self) -> None:
         self._stop.set()

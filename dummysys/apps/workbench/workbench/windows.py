@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 from urllib.parse import quote
 
+from .ports import AppUnavailable, OpenFailed
 from .action_policy import SCRIPT_EXTENSIONS
 from .processes import spawn_background
 from .instance_control import (InstanceMutex, PipeControl, instance_digest, mutex_name,
@@ -23,14 +24,6 @@ from .windows_identity import process_identity, current_user_sid
 from .window_control import activate_edge_window, activate_native_window, native_window_handle, public_url
 
 APP_UNAVAILABLE_MSG = "应用不可用或未配置"
-
-class AppUnavailable(Exception):
-    pass
-
-
-class OpenFailed(Exception):
-    pass
-
 
 def detect_vscode() -> str | None:
     candidates = [
@@ -67,6 +60,12 @@ class WindowsOpener:
         self.window_launcher_exe = apps.get("window_launcher_exe")
         self.obsidian_vault = apps.get("obsidian_vault_path")
         self._events: list[dict] = []
+
+    def open_browser(self, url, profile_dir=None):
+        return self.edge_app_mode(url, profile_dir)
+
+    def activate_browser(self, url, profile_dir):
+        return self.activate_edge_app(url, profile_dir)
 
     # ---- 探测 ----
     def probe(self) -> dict:
@@ -186,6 +185,9 @@ class WindowsOpener:
 
 class RecordingOpener:
     """测试打开适配器：只记录动作和目标，不真正打开应用。"""
+
+    def open_browser(self, url, profile_dir=None):
+        return self.edge_app_mode(url, profile_dir)
 
     def __init__(self, probe_result: dict | None = None):
         self._events: list[dict] = []

@@ -18,9 +18,9 @@ def _print(value) -> None:
 
 def cmd_doctor(args) -> int:
     from .config import load_config
-    from .windows import WindowsOpener
+    from .platform_runtime import create_opener
     config = load_config(args.config)
-    opener = WindowsOpener(config)
+    opener = create_opener(config)
     probe = opener.probe()
     result = {
         "schema_version": config["schema_version"],
@@ -49,8 +49,8 @@ def cmd_launch(args) -> int:
     lifecycle = Lifecycle(config)
     try:
         if browser_mode:
-            from .windows import WindowsOpener
-            opener = WindowsOpener(config)
+            from .platform_runtime import create_opener
+            opener = create_opener(config)
             opener.supports_native_window = False
             result = lifecycle.launch(opener=opener)
         else:

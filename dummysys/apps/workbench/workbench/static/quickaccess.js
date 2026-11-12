@@ -1,3 +1,4 @@
+import { commandPressed, primaryKey, isMac } from './platform-ui.js';
 // 左侧导航栏顶部「快速跳转」：输入框聚焦/输入展开下拉，候选 = 项目 + 固定目录 + 最近访问。
 // 不含 task/run/文件 搜索（那在主区顶部的全局搜索 search.js）。保留图钉、首页网格、最近记录。
 import { target, targetKey, mark } from './api.js';
@@ -238,14 +239,14 @@ export function createQuickAccess(nav, session, flash) {
       if (open && !wrap.contains(event.target)) closePopover();
     });
     document.addEventListener('keydown', (event) => {
-      if (event.defaultPrevented || event.altKey || event.metaKey) return;
+      if (event.defaultPrevented || event.altKey || (event.metaKey && !isMac)) return;
       // Ctrl+K 聚焦左侧快速跳转（Ctrl+Shift+F 聚焦主区全局搜索，见 search.js）。
-      if (event.ctrlKey && !event.shiftKey && event.key.toLowerCase() === 'k') {
+      if (commandPressed(event) && !event.shiftKey && event.key.toLowerCase() === 'k') {
         if ([...document.querySelectorAll('dialog[open]')].length) return;
         event.preventDefault();
         if (!open) openPopover();
         input.focus();
-      } else if (!event.ctrlKey && !event.shiftKey && event.key === '/' && !open && !editable(event.target)) {
+      } else if (!commandPressed(event) && !event.shiftKey && event.key === '/' && !open && !editable(event.target)) {
         if (document.querySelector('dialog[open]')) return;
         if ($('dir-filter').disabled || $('pane-toolbar').classList.contains('hidden')) return;
         event.preventDefault(); $('dir-filter').focus();

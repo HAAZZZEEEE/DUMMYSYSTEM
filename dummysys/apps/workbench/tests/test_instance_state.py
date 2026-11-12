@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from workbench.lifecycle import Lifecycle, write_json
-from workbench.instance_control import InstanceMutex
+from workbench.platform_runtime import InstanceMutex
 
 
 class InstanceStateTest(unittest.TestCase):
@@ -133,8 +133,10 @@ class InstanceStateTest(unittest.TestCase):
             with self.assertRaises(PermissionError):
                 self.life.stop()
         self.assertTrue(self.path.exists())
-        self.assertIsNone(self.life.mutex._handle)
-        self.assertIsNone(self.life.launch_mutex._handle)
+        self.assertTrue(self.life.mutex.acquire())
+        self.life.mutex.release()
+        self.assertTrue(self.life.launch_mutex.acquire())
+        self.life.launch_mutex.release()
 
     def test_corrupt_status_preserves_evidence(self):
         self.path.write_bytes(b'{')

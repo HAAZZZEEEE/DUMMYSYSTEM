@@ -1,7 +1,8 @@
+import { fileManager } from './platform-ui.js';
 import { api, target, mark } from './api.js';
 
 const labels = { obsidian_open: '用 Obsidian 打开', vscode_open: '用 VS Code 打开',
-  explorer_open: '在资源管理器打开', explorer_reveal: '在资源管理器定位', system_open: '系统默认应用打开' };
+  explorer_open: `在 ${fileManager} 打开`, explorer_reveal: `在 ${fileManager} 定位`, system_open: '系统默认应用打开' };
 const actionId = (action) => typeof action === 'string' ? action : action.action || action.id;
 export function metadata(value) {
   const { target: resolved, ...fields } = value || {};

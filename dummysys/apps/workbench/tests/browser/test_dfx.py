@@ -9,12 +9,17 @@ class DfxBrowserTests(BrowserCase):
         with patch.object(self.application,'_ptr_read',return_value=dict(total_calls=0,commands=[])):
             self.page.get_by_role('button',name='回到首页',exact=True).click()
             expect(self.page.locator('.ov-project')).to_have_count(2)
+            render=[]; requests=[]
             for _ in range(30):
-                self.page.get_by_role('button',name='↻ 刷新沙盘',exact=True).click()
+                with self.page.expect_response(lambda response: response.url.endswith('/api/v1/overview')):
+                    self.page.get_by_role('button',name='↻ 刷新沙盘',exact=True).click()
                 expect(self.page.locator('#overview')).to_have_attribute('aria-busy','false')
-        samples=self.page.evaluate("async () => (await import('/diagnostics.js')).snapshot()")
-        render=[r['elapsedMs'] for r in samples if r['phase']=='render' and r['operation']=='overview']
-        requests=[r for r in samples if r['phase']=='request' and r['operation']=='overview']
+                samples=self.page.evaluate("async () => (await import('/diagnostics.js')).snapshot()")
+                # The 100-sample ring also records storage/navigation. Capture each
+                # completed refresh before later work legitimately evicts samples.
+                render.append([r['elapsedMs'] for r in samples if r['phase']=='render' and r['operation']=='overview'][-1])
+                requests.append([r for r in samples if r['phase']=='request' and r['operation']=='overview'][-1])
+                self.assertLessEqual(len(samples),100)
         self.assertGreaterEqual(len(render),30);self.assertGreaterEqual(len(requests),30)
         self.assertTrue(all(r.get('diagnosticId') for r in requests));self.assertLessEqual(len(samples),100)
         (self.output/'frontend-timing.json').write_text(json.dumps(dict(render_ms=render,requests=requests),ensure_ascii=False,indent=2),encoding='utf-8')

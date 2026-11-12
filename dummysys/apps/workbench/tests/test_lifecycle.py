@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 
 from workbench.lifecycle import (APP_ID, Instance, Lifecycle, find_free_port, health_probe,
                                  health_matches, port_ready, process_exited, state_dir, write_json)
-from workbench.windows_identity import process_identity
+from workbench.platform_runtime import process_identity
 
 
 class InstanceTest(unittest.TestCase):
@@ -140,30 +140,30 @@ class InstanceTest(unittest.TestCase):
         life = Lifecycle(self.config)
         life.pipe.request = Mock(return_value={"instance_id": record["instance_id"], "token": "TOPSECRET"})
         opener = Mock()
-        opener.activate_edge_app.return_value = True
+        opener.activate_browser.return_value = True
         # 未成功 dispatch 的实例即使窗口看起来可激活，也必须先 bootstrap。
         initial = life._open_window(record, opener)
         self.assertTrue(initial["window_dispatched"])
         self.assertFalse(initial["window_reused"])
-        self.assertEqual(opener.edge_app_mode.call_args.args[1],
-                         str(life.instance.state / "edge-profile" / record["instance_id"]))
-        opener.activate_edge_app.assert_not_called()
+        self.assertEqual(opener.open_browser.call_args.args[1],
+                         str(life.instance.state / "browser-profile" / record["instance_id"]))
+        opener.activate_browser.assert_not_called()
         self.assertEqual(life.instance.window_path.is_file(), True)
         life.pipe.request.reset_mock()
-        opener.edge_app_mode.reset_mock()
+        opener.open_browser.reset_mock()
         self.assertTrue(life._open_window(record, opener)["window_reused"])
-        self.assertEqual(opener.activate_edge_app.call_args.args[1],
-                         str(life.instance.state / "edge-profile" / record["instance_id"]))
+        self.assertEqual(opener.activate_browser.call_args.args[1],
+                         str(life.instance.state / "browser-profile" / record["instance_id"]))
         life.pipe.request.assert_not_called()
-        opener.edge_app_mode.assert_not_called()
-        opener.activate_edge_app.return_value = False
+        opener.open_browser.assert_not_called()
+        opener.activate_browser.return_value = False
         result = life._open_window(record, opener)
         self.assertFalse(result["window_reused"])
         self.assertTrue(result["window_dispatched"])
         self.assertNotIn("TOPSECRET", json.dumps(result))
         self.assertNotIn("#", result["url"])
-        self.assertIn("#token=TOPSECRET", opener.edge_app_mode.call_args.args[0])
-        opener.edge_app_mode.side_effect = RuntimeError("TOPSECRET")
+        self.assertIn("#token=TOPSECRET", opener.open_browser.call_args.args[0])
+        opener.open_browser.side_effect = RuntimeError("TOPSECRET")
         self.assertNotIn("TOPSECRET", json.dumps(life._open_window(record, opener)))
 
     def test_native_window_waits_for_verified_host_and_reuses_it(self):
@@ -189,9 +189,9 @@ class InstanceTest(unittest.TestCase):
         life = Lifecycle(self.config)
         life.pipe.request = Mock(return_value={"instance_id": record["instance_id"], "token": "FIRST"})
         opener = Mock()
-        opener.activate_edge_app.return_value = True
+        opener.activate_browser.return_value = True
         self.assertTrue(life._open_window(record, opener)["window_dispatched"])
-        old_profile = Path(opener.edge_app_mode.call_args.args[1])
+        old_profile = Path(opener.open_browser.call_args.args[1])
         old_profile.mkdir(parents=True)
         old_asset = old_profile / "retained.txt"
         old_asset.write_text("保留旧 profile", encoding="utf-8")
@@ -201,13 +201,13 @@ class InstanceTest(unittest.TestCase):
         result = life._open_window(other, opener)
         self.assertFalse(result["window_reused"])
         self.assertTrue(result["window_dispatched"])
-        opener.activate_edge_app.assert_not_called()
+        opener.activate_browser.assert_not_called()
         life.pipe.request.assert_called_with(life.pipe.REQUEST_TOKEN, expected_instance_id=other["instance_id"],
                                             expected_process=other)
-        self.assertIn("#token=SECOND", opener.edge_app_mode.call_args.args[0])
-        self.assertEqual(opener.edge_app_mode.call_args.args[1],
-                         str(life.instance.state / "edge-profile" / other["instance_id"]))
-        self.assertNotEqual(Path(opener.edge_app_mode.call_args.args[1]), old_profile)
+        self.assertIn("#token=SECOND", opener.open_browser.call_args.args[0])
+        self.assertEqual(opener.open_browser.call_args.args[1],
+                         str(life.instance.state / "browser-profile" / other["instance_id"]))
+        self.assertNotEqual(Path(opener.open_browser.call_args.args[1]), old_profile)
         self.assertEqual(old_asset.read_text(encoding="utf-8"), "保留旧 profile")
         window = json.loads(life.instance.window_path.read_text(encoding="utf-8"))
         self.assertEqual(window["instance_id"], other["instance_id"])
@@ -221,12 +221,12 @@ class InstanceTest(unittest.TestCase):
         life = Lifecycle(self.config)
         life.pipe.request = Mock(return_value={"instance_id": record["instance_id"], "token": "SECRET"})
         opener = Mock()
-        opener.activate_edge_app.return_value = True
-        opener.edge_app_mode.side_effect = RuntimeError("failed")
+        opener.activate_browser.return_value = True
+        opener.open_browser.side_effect = RuntimeError("failed")
         result = life._open_window(record, opener)
         self.assertFalse(result["window_dispatched"])
         self.assertFalse(life.instance.window_path.exists())
-        opener.activate_edge_app.assert_not_called()
+        opener.activate_browser.assert_not_called()
 
     def test_corrupt_window_record_requires_bootstrap(self):
         record = self.record()
@@ -234,11 +234,11 @@ class InstanceTest(unittest.TestCase):
         life.instance.window_path.write_bytes(b'\xff')
         life.pipe.request = Mock(return_value={"instance_id": record["instance_id"], "token": "SECRET"})
         opener = Mock()
-        opener.activate_edge_app.return_value = True
+        opener.activate_browser.return_value = True
         result = life._open_window(record, opener)
         self.assertTrue(result["window_dispatched"])
         self.assertFalse(result["window_reused"])
-        opener.activate_edge_app.assert_not_called()
+        opener.activate_browser.assert_not_called()
 
     def test_concurrent_launch_spawns_once(self):
         record = self.record()
@@ -267,7 +267,7 @@ class InstanceTest(unittest.TestCase):
             popen.assert_called_once()
 
     def test_launch_waits_existing_serve_without_spawning(self):
-        from workbench.instance_control import InstanceMutex
+        from workbench.platform_runtime import InstanceMutex
         mutex = InstanceMutex(self.tmp.name)
         self.assertTrue(mutex.acquire())
         try:
@@ -293,7 +293,8 @@ class InstanceTest(unittest.TestCase):
         self.assertEqual(identity["port"], 43210)
         self.assertFalse(life.instance.instance_path.exists())
         self.assertIsNone(life.pipe._thread)
-        self.assertIsNone(life.mutex._handle)
+        self.assertTrue(life.mutex.acquire())
+        life.mutex.release()
 
 
 if __name__ == "__main__":

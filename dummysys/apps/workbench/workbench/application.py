@@ -24,7 +24,7 @@ from .catalog import (
     TargetNotFound,
     TargetForbidden,
 )
-from .windows import AppUnavailable, OpenFailed
+from .ports import AppUnavailable, OpenFailed
 from .action_policy import SCRIPT_EXTENSIONS
 from .preferences import Preferences
 from . import dmy

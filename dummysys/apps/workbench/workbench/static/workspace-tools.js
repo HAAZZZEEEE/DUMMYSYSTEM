@@ -1,3 +1,4 @@
+import { commandPressed, primaryKey, isMac } from './platform-ui.js';
 // 工作区效率控件；导航数据仍由 navigation/directory 拥有。
 import { isEditing } from './interaction.js';
 
@@ -64,7 +65,7 @@ export function createWorkspaceTools(nav, session, flash) {
     focusButton.focus();
   };
   const focusButton = button('btn-focus', '专注', toggleFocus);
-  focusButton.title = '专注模式：收起导航与预览（Ctrl+Shift+L）';
+  focusButton.title = `专注模式：收起导航与预览（${primaryKey}+Shift+L）`;
   focusButton.setAttribute('aria-pressed', 'false');
   const helpButton = button('btn-shortcuts', '?', () => {
     if (document.querySelector('dialog[open]')) return;
@@ -80,8 +81,8 @@ export function createWorkspaceTools(nav, session, flash) {
   const hint = document.createElement('p'); hint.textContent = '把手留在键盘上，也能轻松浏览工作区。';
   help.append(title, hint);
   const list = document.createElement('dl');
-  for (const [keys, label] of [['Ctrl + K', '快速跳转'], ['Ctrl + Shift + F', '全局搜索'],
-    ['/', '筛选当前目录'], ['Ctrl + Shift + L', '切换专注模式'], ['↑ / ↓、Enter', '选择并打开条目'],
+  for (const [keys, label] of [[`${primaryKey} + K`, '快速跳转'], [`${primaryKey} + Shift + F`, '全局搜索'],
+    ['/', '筛选当前目录'], [`${primaryKey} + Shift + L`, '切换专注模式'], ['↑ / ↓、Enter', '选择并打开条目'],
     ['Esc', '关闭搜索或对话框'], ['?', '查看快捷键']]) {
     const term = document.createElement('dt'); term.textContent = label;
     const detail = document.createElement('dd'); const key = document.createElement('kbd'); key.textContent = keys;
@@ -93,11 +94,11 @@ export function createWorkspaceTools(nav, session, flash) {
   help.addEventListener('close', () => helpButton.focus());
   document.addEventListener('keydown', event => {
     if (event.defaultPrevented || event.isComposing || document.querySelector('dialog[open]')) return;
-    if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'l') {
+    if (commandPressed(event) && event.shiftKey && event.key.toLowerCase() === 'l') {
       event.preventDefault(); toggleFocus();
-    } else if (event.key === '?' && !event.ctrlKey && !event.altKey && !event.metaKey && !isEditing(event.target)) {
+    } else if (event.key === '?' && !commandPressed(event) && !event.altKey && !event.metaKey && !isEditing(event.target)) {
       event.preventDefault(); helpButton.click();
-    } else if (focus && event.ctrlKey && !event.shiftKey && event.key.toLowerCase() === 'k') {
+    } else if (focus && commandPressed(event) && !event.shiftKey && event.key.toLowerCase() === 'k') {
       // 先恢复导航，让随后由 quickaccess 接管的快捷键有可见输入框。
       toggleFocus();
     }

@@ -11,6 +11,8 @@ def _background_options(kwargs, independent=False):
         kwargs['creationflags'] = flags | subprocess.CREATE_NO_WINDOW
         if independent:
             kwargs['creationflags'] |= subprocess.CREATE_NEW_PROCESS_GROUP
+    elif independent:
+        kwargs["start_new_session"] = True
     return kwargs
 
 

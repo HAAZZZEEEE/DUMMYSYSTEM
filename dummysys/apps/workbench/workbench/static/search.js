@@ -1,3 +1,4 @@
+import { commandPressed, primaryKey, isMac } from './platform-ui.js';
 // 主区顶部全局搜索：同时搜 项目/任务/运行/文件 的搜索条。
 // 聚焦/输入展开内联下拉，空查询显示最近访问，结果按 p/t/r/文件 分组 + 过滤按钮。
 // 左侧导航栏顶部的「快速跳转」（quickaccess.js）负责项目/固定/最近，与本搜索互补。
@@ -296,13 +297,13 @@ export function createSearch(nav, session, flash, qa, preview) {
 
     // Ctrl+Shift+F 聚焦主区全局搜索（Ctrl+K 由左侧快速跳转 quickaccess.js 接管）。
     document.addEventListener('keydown', (event) => {
-      if (event.defaultPrevented || event.altKey || event.metaKey) return;
+      if (event.defaultPrevented || event.altKey || (event.metaKey && !isMac)) return;
       if (event.key === 'Escape' && open && !document.querySelector('dialog[open]')) {
         event.preventDefault();
         closePopover();
         return;
       }
-      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'f') {
+      if (commandPressed(event) && event.shiftKey && event.key.toLowerCase() === 'f') {
         if (document.querySelector('dialog[open]')) return;
         event.preventDefault();
         if (!open) openPopover();

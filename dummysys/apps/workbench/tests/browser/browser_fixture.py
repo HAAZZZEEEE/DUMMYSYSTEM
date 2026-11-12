@@ -86,11 +86,11 @@ class BrowserCase(unittest.TestCase):
         cls.pw = sync_playwright().start()
         cls.addClassCleanup(cls.pw.stop)
         try:
-            cls.browser = cls.pw.chromium.launch(channel="msedge", headless=True)
+            cls.browser = cls.pw.chromium.launch(headless=True, **({"channel": "msedge"} if sys.platform == "win32" else {}))
         except Exception as error:
-            raise RuntimeError("浏览器回归前置条件不满足：无法启动已安装的 Edge channel=msedge。") from error
+            raise RuntimeError("浏览器回归前置条件不满足：无法启动浏览器；Windows 需要 Edge，macOS 先运行 playwright install chromium。") from error
         cls.addClassCleanup(cls.browser.close)
-        print(f"\n浏览器：Edge {cls.browser.version}；headless；每例隔离 context。", flush=True)
+        print(f"\n浏览器：Chromium {cls.browser.version}；headless；每例隔离 context。", flush=True)
         print(f"产物目录：{cls.output}（{'显式保留' if explicit else '退出后自动清理'}）", flush=True)
         print("验证边界：RecordingOpener 不启动系统应用；剪贴板 API 替身，不验系统剪贴板。", flush=True)
 

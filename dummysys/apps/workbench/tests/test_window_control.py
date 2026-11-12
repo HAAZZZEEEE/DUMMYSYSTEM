@@ -10,6 +10,7 @@ from workbench.windows import WindowsOpener, RecordingOpener, SCRIPT_EXTENSIONS
 from workbench.action_policy import SCRIPT_EXTENSIONS as POLICY_SCRIPTS
 
 
+@unittest.skipUnless(__import__("os").name == "nt", "Windows native window APIs")
 class WindowControlTest(unittest.TestCase):
     def _check_com_release(self, fail_query=False):
         events = []

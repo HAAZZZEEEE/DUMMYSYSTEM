@@ -23,6 +23,10 @@ def _exe_dir() -> Path:
 
 
 def default_config_path() -> Path:
+    if sys.platform == 'darwin' and getattr(sys, 'frozen', False):
+        import json
+        manifest = _exe_dir().parent / 'Resources/workbench-config.json'
+        return Path(json.loads(manifest.read_text(encoding='utf-8'))['config'])
     # 发行布局：.../task_root/state/install/current/WorkbenchLauncher/WorkbenchLauncher.exe
     exe_dir = _exe_dir()
     task_root = exe_dir.parent.parent.parent.parent
@@ -55,12 +59,12 @@ def main(argv=None) -> int:
         from .__main__ import main as cli_main
         exit_code = cli_main(args)
         if exit_code:
-            _report_error(RuntimeError(f'{command} 执行失败，请查看工作台运行记录'))
+            _report_error(RuntimeError(f'{command} 执行失败，请查看工作台运行记录'), config)
         return exit_code
     except SystemExit as exc:
         return exc.code if isinstance(exc.code, int) else 1
     except Exception as error:  # 窗口化程序无控制台，错误必须可见
-        _report_error(error)
+        _report_error(error, config)
         return 1
 
 
@@ -69,12 +73,14 @@ def _null_stream() -> object:
     return io.StringIO()
 
 
-def _report_error(error: Exception) -> None:
+def _report_error(error: Exception, config=None) -> None:
     try:
-        log = _exe_dir() / "launcher.log"
+        log = (Path(config).parent / "state/launcher-error.log") if config else (_exe_dir() / "launcher.log")
+        log.parent.mkdir(parents=True, exist_ok=True)
         log.write_text(str(error) + "\n", encoding="utf-8")
-        import ctypes
-        ctypes.windll.user32.MessageBoxW(None, str(error), "DUMMYSYS 工作台启动失败", 0x10)
+        if sys.platform == "win32":
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(None, str(error), "DUMMYSYS 工作台启动失败", 0x10)
     except Exception:
         pass
 

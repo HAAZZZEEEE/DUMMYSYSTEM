@@ -30,7 +30,8 @@ class WindowBrandingTest(unittest.TestCase):
             with patch.dict('sys.modules', {'clr': Mock(), 'webview': webview}), \
                     patch('workbench.window_host.Lifecycle') as constructor, \
                     patch('workbench.window_host.process_identity', return_value=identity), \
-                    patch('workbench.window_host.set_workbench_app_id', side_effect=lambda: order.append('identity')):
+                    patch('workbench.windows_window.set_workbench_app_id', side_effect=lambda: order.append('identity')), \
+                    patch('workbench.window_host.host_backend', return_value=__import__('workbench.windows_window', fromlist=['run'])):
                 life = constructor.return_value
                 life.instance.is_healthy.return_value = record
                 life.instance.state = root / 'state'

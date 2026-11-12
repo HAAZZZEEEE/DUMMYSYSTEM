@@ -1,8 +1,8 @@
 """单实例、会话与任务栏闭环：launch/serve/status/stop 与快捷方式安装。
 
-使用按用户 SID 与 task_root 摘要命名的 Windows mutex 序列化 launch；state/instance.json
+平台适配器按用户与 task_root 摘要序列化 launch；state/instance.json
 保存 PID、进程创建时间、端口、instance_id，PID 不能单独作为归属依据。启动器与服务
-通过当前用户命名管道交换 bootstrap token/控制消息。快捷方式指向稳定
+通过当前用户控制通道交换 bootstrap token/控制消息。快捷方式指向稳定
 WorkbenchLauncher.exe，安装清单记录创建位置与目标。
 """
 from __future__ import annotations
@@ -19,8 +19,8 @@ from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
-from .instance_control import InstanceMutex, PipeControl
-from .windows_identity import process_identity, identity_matches, current_user_sid, process_alive
+from .platform_runtime import (InstanceMutex, PipeControl, process_identity, identity_matches,
+                               current_user_sid, process_alive, create_opener)
 from .processes import spawn_background
 from .file_io import write_json
 
@@ -223,12 +223,11 @@ class Lifecycle:
         try:
             from waitress import create_server
             from .web import create_app
-            from .windows import WindowsOpener
             from .catalog import Catalog
             from .application import Application
 
             catalog = Catalog(self.config)
-            opener = WindowsOpener(self.config)
+            opener = create_opener(self.config)
             application = Application(catalog, opener)
             application.set_preferences_path(self.instance.preferences_path)
 
@@ -288,15 +287,14 @@ class Lifecycle:
 
     def _graceful_stop(self, server) -> None:
         time.sleep(0.3)
-        # waitress close() 只关闭监听 socket 与 trigger；浏览器 keep-alive 连接
-        # 仍在 server._map 中，run() 以 `while map` 持续轮询不返回。逐个关闭
-        # 剩余 channel，使 run 循环退出、进程正常结束。
-        for obj in list(getattr(server, "_map", {}).values()):
-            try:
+        # Move descriptor closure onto waitress's event-loop thread. Closing from
+        # the IPC thread can invalidate descriptors inside select() on Darwin.
+        server.task_dispatcher.shutdown()
+        def close_channels():
+            for obj in list(getattr(server, "_map", {}).values()):
                 obj.close()
-            except Exception:
-                pass
-        server.close()
+            server.close()
+        server.trigger.pull_trigger(close_channels)
 
     # ---- launch ----
     def launch(self, opener=None, wait_ready: float = READY_TIMEOUT) -> dict:
@@ -332,16 +330,15 @@ class Lifecycle:
     def _open_window(self, record: dict, opener=None) -> dict:
         """由 launch 在 launch_mutex 内调用；只复用成功打开过的同一服务实例。"""
         url = f"http://127.0.0.1:{record['port']}/"
-        profile_dir = str(self.instance.state / "edge-profile" / record["instance_id"])
+        profile_dir = str(self.instance.state / "browser-profile" / record["instance_id"])
         result = {"instance_id": record["instance_id"], "port": record["port"], "url": url,
                   "window_dispatched": False, "window_reused": False}
         if opener is None:
-            from .windows import WindowsOpener
-            opener = WindowsOpener(self.config)
+            opener = create_opener(self.config)
         if getattr(opener, "supports_native_window", False) is True:
             return self._open_native_window(record, opener, result)
         try:
-            activate = getattr(opener, "activate_edge_app", None)
+            activate = getattr(opener, "activate_browser", None)
             window = read_json(self.instance.window_path)
             same_instance = (window.get("schema_version") == SCHEMA_VERSION
                              and window.get("instance_id") == record["instance_id"]
@@ -357,7 +354,7 @@ class Lifecycle:
                     not isinstance(token, str) or not token):
                 return {**result, "reason": "无法获取当前实例的启动令牌"}
             from urllib.parse import quote
-            opener.edge_app_mode(f"{url}#token={quote(token, safe='')}", profile_dir)
+            opener.open_browser(f"{url}#token={quote(token, safe='')}", profile_dir)
             write_json(self.instance.window_path, {
                 "schema_version": SCHEMA_VERSION, "instance_id": record["instance_id"],
                 "port": record["port"], "profile_dir": profile_dir,
@@ -375,7 +372,8 @@ class Lifecycle:
                              and window.get("instance_id") == record["instance_id"]
                              and window.get("port") == record["port"])
             if same_instance and opener.native_app_ready(window):
-                opener.activate_native_app(window)
+                if not opener.activate_native_app(window):
+                    return {**result, "reason": "无法唤醒工作台窗口"}
                 return {**result, "window_dispatched": True, "window_reused": True}
             opener.native_app_mode(str(self.config["config_path"]), record["instance_id"])
             deadline = time.monotonic() + READY_TIMEOUT
@@ -474,9 +472,9 @@ class Lifecycle:
 
     # ---- 快捷方式 ----
     def install_shortcuts(self, launcher_exe: str, opener=None) -> dict:
-        from .shortcuts import install_shortcuts as _install
+        from .platform_runtime import install_shortcuts as _install
         return _install(self.instance, launcher_exe, opener=opener)
 
     def uninstall_shortcuts(self) -> dict:
-        from .shortcuts import uninstall_shortcuts as _uninstall
+        from .platform_runtime import uninstall_shortcuts as _uninstall
         return _uninstall(self.instance)

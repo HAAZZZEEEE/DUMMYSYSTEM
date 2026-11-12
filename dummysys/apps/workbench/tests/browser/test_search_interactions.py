@@ -15,7 +15,7 @@ class SearchInteractionTests(BrowserCase):
 
     def test_quick_jump_keeps_sidebar_and_resets_query(self):
         self.project()
-        self.page.keyboard.press('Control+k')
+        self.page.keyboard.press('ControlOrMeta+k')
         self.page.locator('#project-search').fill('项目 B')
         expect(self.page.get_by_test_id('project-link')).to_have_count(2)
         self.page.locator('#project-search').press('Enter')

@@ -41,7 +41,7 @@ export function createHomepage(nav, session, flash) {
           const action = info.target?.kind === 'dir' ? 'explorer_open' : 'explorer_reveal';
           if (!info.target?.available || info.target.navigation_only
               || !(info.available_actions || []).some(item => (typeof item === 'string' ? item : item.action || item.id) === action))
-            throw new Error(info.target?.reason || '该路径不存在或不能在资源管理器打开。');
+            throw new Error(info.target?.reason || '该路径不存在或不能在文件管理器打开。');
           if (!valid()) return {};
           await api('open', { body:{target, action, request_id:crypto.randomUUID()}, signal:ctx.signal });
           return {status:'dispatched', action};

@@ -144,7 +144,7 @@
 
 <dialog id="copy-dialog" data-testid="copy-dialog" aria-labelledby="copy-title">
   <h2 id="copy-title">复制完整路径</h2>
-  <p>自动复制不可用。请选中路径并按 Ctrl+C。</p>
+  <p>自动复制不可用。请选中路径并按 <span data-primary-key>Ctrl</span>+C。</p>
   <input id="copy-path" data-testid="copy-path" aria-label="待复制的完整路径" readonly>
   <button id="copy-close" class="btn ghost" aria-label="关闭复制路径对话框">关闭</button>
 </dialog>
@@ -193,7 +193,7 @@
       <div><dt>源码提交</dt><dd data-testid="meta-sha">—</dd></div>
       <div><dt>安装来源</dt><dd data-testid="meta-source">—</dd></div>
     </dl>
-    <p class="settings-note">工作台直接运行源码；界面修改刷新生效，服务逻辑修改需重启。源码提交显示当前检出版本。</p>
+    <p class="settings-note">运行版本来自当前安装。更新后重启工作台即可使用新版本。</p>
   </section>
   <section class="settings-section" aria-labelledby="service-title">
     <h3 id="service-title">服务</h3>
@@ -203,7 +203,7 @@
     </div>
     <p id="restart-note" class="settings-note">停止当前实例后重新启动并打开窗口。端口与会话都会更换，本窗口会失效，请改用新窗口。</p>
   </section>
-  <section class="settings-section" aria-labelledby="shortcuts-title"><h3 id="shortcuts-title">快捷键</h3><dl class="settings-shortcuts"><div><dt>快速跳转</dt><dd><kbd>Ctrl</kbd> + <kbd>K</kbd></dd></div><div><dt>全局搜索</dt><dd><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>F</kbd></dd></div><div><dt>筛选当前目录</dt><dd><kbd>/</kbd></dd></div><div><dt>关闭对话框</dt><dd><kbd>Esc</kbd></dd></div></dl></section>
+  <section class="settings-section" aria-labelledby="shortcuts-title"><h3 id="shortcuts-title">快捷键</h3><dl class="settings-shortcuts"><div><dt>快速跳转</dt><dd><kbd data-primary-key>Ctrl</kbd> + <kbd>K</kbd></dd></div><div><dt>全局搜索</dt><dd><kbd data-primary-key>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>F</kbd></dd></div><div><dt>筛选当前目录</dt><dd><kbd>/</kbd></dd></div><div><dt>关闭对话框</dt><dd><kbd>Esc</kbd></dd></div></dl></section>
   <footer class="settings-footer"><button id="settings-reset" data-testid="settings-reset" class="btn ghost">恢复默认外观</button><p id="settings-status" role="status" aria-live="polite">更改后自动保存</p></footer>
 </dialog>
 <script type="module" src="/app.js"></script>

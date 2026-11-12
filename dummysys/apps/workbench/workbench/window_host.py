@@ -1,13 +1,14 @@
-"""Native Windows window for the existing local Workbench service."""
+"""Shared native window for the existing local Workbench service."""
 from __future__ import annotations
 
 import os
 from pathlib import Path
 from urllib.parse import quote
 
-from .instance_control import PipeControl
+from .platform_runtime import PipeControl, process_identity
 from .lifecycle import Lifecycle, SCHEMA_VERSION, write_json
-from .windows_identity import process_identity, set_workbench_app_id, WORKBENCH_APP_ID
+import sys
+from .native_host import host_backend
 
 
 def window_icon(config: dict) -> str | None:
@@ -17,15 +18,17 @@ def window_icon(config: dict) -> str | None:
         if not icon.is_file():
             raise RuntimeError('配置的工作台窗口图标不存在')
         return str(icon)
+    if sys.platform == 'darwin' and getattr(sys, 'frozen', False):
+        icon = Path(sys.executable).parent.parent / 'Resources/DUMMYSYS.icns'
+        return str(icon) if icon.is_file() else None
     icon = Path(__file__).resolve().parent / 'static' / 'icons' / 'app-icon.ico'
     return str(icon) if icon.is_file() else None
 
 
 def show(config: dict, instance_id: str) -> None:
     icon = window_icon(config)
-    set_workbench_app_id()
-    # Load pythonnet through .NET Framework before pywebview's CoreCLR fallback.
-    import clr
+    backend = host_backend()
+    backend.prepare()
     import webview
 
     lifecycle = Lifecycle(config)
@@ -46,7 +49,7 @@ def show(config: dict, instance_id: str) -> None:
         raise RuntimeError("无法确认工作台窗口进程")
     window_record = {"schema_version": SCHEMA_VERSION, "kind": "native",
                      "instance_id": instance_id, "port": record["port"], **identity,
-                     "app_user_model_id": WORKBENCH_APP_ID, "icon_path": icon}
+                     "app_user_model_id": "DUMMYSYS.Workbench", "icon_path": icon}
 
     def shown():
         # The parent launches under the launch mutex; the GUI publishes itself only
@@ -62,4 +65,4 @@ def show(config: dict, instance_id: str) -> None:
 
     window.events.shown += shown
     window.events.closed += closed
-    webview.start(gui="edgechromium", icon=icon, storage_path=str(lifecycle.instance.state / "webview"))
+    backend.run(webview, window, lifecycle, window_record, icon)
