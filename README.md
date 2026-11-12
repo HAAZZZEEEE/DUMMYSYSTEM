@@ -12,7 +12,7 @@ DUMMYSYS 是面向 Agent 辅助工作的本地文件组织与工作记录工具�
 
 这个实现从作者的个人工作流长出，后续迭代继续服务该工作流。计划分享方法论与代码，不承诺面向使用者的升级迁移、版本兼容或稳定性维护；使用者负责自己的部署、备份和数据。
 
-当前按私有仓库开发，代码与示例保持脱敏；自有代码和随附方法论文档采用 [MIT 许可证](LICENSE.txt)，尚未公开发布。Windows 是参考实现，已具备本机 CLI、浏览器 Workbench 与项目离线导入导出；macOS 独立运行和跨平台互通仍待实现或验证。两机通信、自动同步与同时写入不在当前范围。第三方声明见 [THIRD_PARTY.md](THIRD_PARTY.md)，平台范围见 [双平台与数据互通](docs/platform-and-data.md)。
+当前按私有仓库开发，代码与示例保持脱敏；自有代码和随附方法论文档采用 [MIT 许可证](LICENSE.txt)，尚未公开发布。共享 core/CLI 支持 Windows 与 macOS，Workbench 使用平台适配器运行本机服务与原生窗口。macOS 已纳入安装和功能验证；Windows 原生回归及真实跨机器往返须在相应机器完成。安装与 Agent 执行入口见 [INSTALL.md](INSTALL.md)。两机通信、自动同步与同时写入不在当前范围。第三方声明见 [THIRD_PARTY.md](THIRD_PARTY.md)，平台范围见 [双平台与数据互通](docs/platform-and-data.md)。
 
 ## 从这里开始
 

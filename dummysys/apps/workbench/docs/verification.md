@@ -15,3 +15,11 @@ CLI/core 投影与 Workbench 必须配套安装。应用缺失、配置位置与
 选中动画回归直接统计浏览器 animationstart/animationend：延迟加载完成后保持一次播放，刷新和重复点击当前分类不重播。
 
 tests/test_file_io.py 使用真实 Windows 文件句柄覆盖偏好、实例与统计缓存三处保存：短时占用释放后写入成功，持续占用明确报错并保留旧值，临时文件被清理。它不识别实际占用进程，也不承诺绕过持久权限限制。统计 HTTP 测试收尾须等待容量与项目两个后台任务结束，再清理夹具。
+
+## macOS 回归
+
+在已安装三包的隔离环境中先导入包，再将测试目录加入 sys.path；设置 TMPDIR 与 WORKBENCH_TEST_OUTPUT 到仓库外。`tests.test_macos_control` 验证真实对端身份、错误实例拒绝、重复服务、超时客户端与残留 socket；`tests.test_macos_smoke` 验证真实服务认证、正常退出和杀死测试子进程后的恢复；`tests.test_macos_opener` 检查结构化参数和可选应用错误。
+
+浏览器夹具在 Windows 使用 Edge，macOS 使用 `python -m playwright install chromium` 安装的 Chromium。快捷键用 Playwright 的 ControlOrMeta，覆盖 Mac 的 ⌘K / ⌘⇧F。性能样本环形缓冲有上限，逐次收集完成的刷新，不假设历史样本永久保留。
+
+真实 `.app` 验收另行检查应用身份、项目/Task/Run、预览、搜索、Finder、重复启动、关闭恢复、⌘Q 与重启。不要把 RecordingOpener 或 Chromium 夹具说成 Cocoa/系统应用实测。Windows 专属 API 用例在 Mac 明确跳过。
