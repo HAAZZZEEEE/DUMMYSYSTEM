@@ -9,6 +9,7 @@ from dummysys_core import locations as loc
 
 import hashlib
 import json
+import sys
 import os
 from pathlib import Path
 import re
@@ -451,6 +452,9 @@ def find_obsidian(explicit=None):
     if os.name == 'nt':
         candidates += [str(Path(os.environ.get('ProgramFiles', 'C:/Program Files')) / 'Obsidian/Obsidian.com'),
                        str(Path(os.environ.get('LOCALAPPDATA', '')) / 'Programs/Obsidian/Obsidian.com')]
+    if sys.platform == 'darwin':
+        candidates += [str(root / 'Obsidian.app/Contents/MacOS/Obsidian')
+                       for root in (Path('/Applications'), Path.home() / 'Applications')]
     for value in candidates:
         if value and Path(value).is_file():
             return str(value)

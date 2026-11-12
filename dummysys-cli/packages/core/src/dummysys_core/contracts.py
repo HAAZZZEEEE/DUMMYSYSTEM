@@ -24,7 +24,7 @@ _RECOVERY = {
     'SCOPE_VIOLATION': ('stop', '核对 Task 声明范围与实际授权，不绕过范围执行'),
     'PATH_OUTSIDE_ROOT': ('stop', '核对登记根和链接边界，不采用越界路径'),
     'REPOSITORY_SCOPE_CONFLICT': ('stop', '核对 Repo 关联、Task 范围和实际 checkout'),
-    'UNSUPPORTED_PLATFORM': ('stop', '使用本机 Windows 的受管运行环境'),
+    'UNSUPPORTED_PLATFORM': ('stop', '使用本机 Windows 或 macOS 的受管运行环境'),
     'LOCK_FAILED': ('stop', '检查本机互斥量与权限环境，保留原请求'),
     'INCOMPATIBLE_OPERATION': ('stop', '使用 Operation 记录对应的原发行核查并恢复'),
     'RECOVERY_CORRUPT': ('stop', '保留损坏现场与 before/after 证据，不继续提交或删除记录'),

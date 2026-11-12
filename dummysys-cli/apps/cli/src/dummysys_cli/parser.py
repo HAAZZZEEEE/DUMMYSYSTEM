@@ -1,4 +1,5 @@
 """命令声明、解析与能力自述；命令参考由同一声明生成。"""
+import sys
 import argparse
 from dummysys_core import __version__, contracts
 from dummysys_core import _records as records
@@ -256,7 +257,7 @@ def capabilities(parser, command=None, action=None):
     elif command:
         names={c['command'][4:].replace(' ', '.') for c in commands}
         contract['actions'] = {k:v for k,v in contract['actions'].items() if k in names}
-    return dict(version=__version__, platform='Windows', commands=commands,
+    return dict(version=__version__, platform=('Windows' if sys.platform == 'win32' else 'macOS' if sys.platform == 'darwin' else sys.platform), supported_platforms=['Windows', 'macOS'], commands=commands,
                 global_options=['--workspace','--config','--json','--actor','--request-id','--if-version','--trace-id'],
                 write_contract='写请求使用稳定 request_id；更新已有对象携带查询得到的 if_version',
                 version_sources={'task':'task show','run':'run show','project':'project show','repo':'repo show'},
