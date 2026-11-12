@@ -38,6 +38,12 @@ VAULT_SUFFIXES = TEXT_DOCUMENT_SUFFIXES | OBSIDIAN_VIEW_SUFFIXES | ATTACHMENT_SU
 SKIP_DIRECTORIES = {".git", ".obsidian", "runtime", ".cac", "__pycache__"}
 
 
+def finder_metadata(path: Path) -> bool:
+    # Finder creates this ordinary metadata file during normal directory browsing.
+    # Do not exempt symlinks, directories or arbitrary hidden files.
+    return path.name == '.DS_Store' and path.is_file() and not path.is_symlink()
+
+
 def workspace_files(root: Path):
     """先剪枝再读文件，不进入机器环境或目录链接。"""
     locations = loc.load(root)
@@ -47,7 +53,9 @@ def workspace_files(root: Path):
                        and Path(directory) / name not in (locations.vault, locations.runtime)
                        and not loc._linked(Path(directory) / name)]
             for name in files:
-                yield Path(directory) / name
+                path = Path(directory) / name
+                if not finder_metadata(path):
+                    yield path
 
 
 def validate_runtime(root: Path) -> list[str]:
@@ -72,6 +80,8 @@ def validate_runtime(root: Path) -> list[str]:
         except (ValueError, KeyError, TypeError, OSError) as error:
             failures.append(f'兼容清单无效：{error}')
     for path in runtime.iterdir():
+        if finder_metadata(path):
+            continue
         if path.name in {'AGENTS.md', 'README.md'} and path.is_file():
             continue
         if path.name in {'project_src', 'servers', 'cache', 'state', 'logs', 'tmp', 'inbox', 'workbench', 'envs'} and path.is_dir():
@@ -87,6 +97,8 @@ def validate_runtime(root: Path) -> list[str]:
             failures.append(f'历史项目路径清单无效：{error}')
     if resources.exists():
         for project in resources.iterdir():
+            if finder_metadata(project):
+                continue
             if project.name != '00-Playground' and not re.fullmatch(r'\[\d{8}\].+', project.name):
                 failures.append(f'项目目录名应为 [yyyymmdd]title：{project.name}')
             if not project.is_dir():
@@ -97,6 +109,8 @@ def validate_runtime(root: Path) -> list[str]:
                 if not path.is_file():
                     failures.append(f'缺少项目配对入口：{path}')
             for child in project.iterdir():
+                if finder_metadata(child):
+                    continue
                 if child in legacy:
                     continue
                 if child.name in {'README.md', 'AGENTS.md', 'project.json', 'workbench.json'} and child.is_file():
