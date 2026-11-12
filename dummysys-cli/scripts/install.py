@@ -4,20 +4,23 @@ import argparse
 import hashlib
 import json
 import os
+import shlex
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from packaging_env import packaging_environment
+from packaging_env import packaging_environment, venv_python
 
 
-def atomic(path, text):
+def atomic(path, text, *, executable=False):
     path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", newline="\n", dir=path.parent, delete=False) as stream:
         stream.write(text)
         temporary = stream.name
+    if executable:
+        os.chmod(temporary, 0o700)
     os.replace(temporary, path)
 
 
@@ -50,13 +53,16 @@ def main(argv=None):
     parser.add_argument("--runtime-root", help="仅新工作区：runtime 位置，相对工作区或绝对路径")
     parser.add_argument("--evidence", type=Path, help="默认 runtime/state/cli/installations/<release-id>")
     parser.add_argument("--config", type=Path, help="默认 runtime/state/workspace/cli.json，必须在目标 runtime 内")
+    parser.add_argument("--desktop", action="store_true", help="安装 wheelhouse 中的本机原生窗口依赖")
     args = parser.parse_args(argv)
-    if os.name != "nt":
-        raise ValueError("本轮安装器只验证 Windows；macOS 支持另行实施")
+    if os.name != "nt" and sys.platform != "darwin":
+        raise ValueError("安装器支持 Windows 和 macOS")
     if not args.workspace.is_absolute() or not args.wheels.is_absolute():
         raise ValueError("--workspace 和 --wheels 必须为绝对路径")
     if not args.release_id or any(c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_" for c in args.release_id) or args.release_id in (".", ".."):
         raise ValueError("release-id 必须为单层标识")
+    if args.workspace.is_symlink() or (hasattr(args.workspace, "is_junction") and args.workspace.is_junction()):
+        raise ValueError("安装目标不能是目录链接")
     root = args.workspace.resolve()
     wheels = args.wheels.resolve()
     packages = wheel_packages(wheels)
@@ -99,8 +105,8 @@ def main(argv=None):
         return process.stdout
     # 使用宿主 pip 驱动目标解释器，避免 ensurepip 在深层路径解包自身。
     run([sys.executable, "-I", "-m", "venv", "--without-pip", str(destination)], "venv.log")
-    python = destination / "Scripts/python.exe"
-    run([sys.executable, "-I", "-m", "pip", "--python", str(python), "install", "--disable-pip-version-check", "--no-compile", "--no-index", "--find-links", str(wheels), *map(str, packages)], "install.log")
+    python = venv_python(destination)
+    run([sys.executable, "-I", "-m", "pip", "--python", str(python), "install", "--disable-pip-version-check", "--no-compile", "--no-index", "--find-links", str(wheels), *(str(p) + ("[desktop]" if args.desktop and p.name.startswith("dummysys_workbench-") else "") for p in packages)], "install.log")
     run([str(python), "-I", "-B", "-m", "dummysys_cli", "capabilities", "--json"], "installed-capabilities.json")
     actual = json.loads(run([str(python), "-I", "-c",
         "import json,sys,dummysys_core,dummysys_cli,workbench; print(json.dumps(dict(python=sys.executable,core=dummysys_core.__file__,cli=dummysys_cli.__file__,workbench=workbench.__file__)))"], "imports.json"))
@@ -111,7 +117,8 @@ def main(argv=None):
     identity = "wheel-sha256:" + hashlib.sha256(json.dumps(hashes, sort_keys=True).encode()).hexdigest()
     manifest_path = runtime / "state/workspace/cli-install.json"
     previous = json.loads(manifest_path.read_text(encoding="utf-8-sig")) if manifest_path.exists() else None
-    sys.path.insert(0, str(destination / "Lib/site-packages"))
+    core_path = Path(actual["core"]).parent.parent
+    sys.path.insert(0, str(core_path))
     from dummysys_core import __version__
     from dummysys_core.operations import workspace_lock, Operations
     with workspace_lock(root):
@@ -121,18 +128,25 @@ def main(argv=None):
         if not wb_config.is_file():
             raise ValueError("缺少初始化生成的 Workbench 配置")
         manifest = dict(schema_version=1, version=__version__, source_commit=identity, python=str(python),
-                        core_path=str(destination / "Lib/site-packages"), previous=previous, wheels=hashes)
+                        core_path=str(core_path), previous=previous, wheels=hashes)
         atomic(manifest_path, json.dumps(manifest, ensure_ascii=False, indent=2))
         if not config.exists():
             atomic(config, json.dumps(dict(schema_version=1, workspace=str(root)), ensure_ascii=False, indent=2))
-        launcher = runtime / "state/cli/bin/dmy.cmd"
-        # Keep batch source ASCII: cmd decodes literal Chinese paths using its code page.
-        # %~dp0 expands the Unicode launcher location without guessing the caller's CWD.
-        # Python 入口以 Unicode 配置定位工作区，runtime 不必在工作区内。
-        atomic(launcher.with_suffix('.py'), 'import sys\nfrom dummysys_cli.__main__ import main\nraise SystemExit(main(["--config", ' + json.dumps(str(config)) + ', *sys.argv[1:]]))\n')
-        atomic(launcher, '@echo off\nsetlocal DisableDelayedExpansion\n"%~dp0..\\..\\..\\envs\\' + args.release_id + '\\Scripts\\python.exe" -I -B "%~dp0dmy.py" %*\n')
-        wb_launch = runtime / "workbench/bin/workbench.cmd"
-        atomic(wb_launch, '@echo off\nsetlocal DisableDelayedExpansion\n"%~dp0..\\..\\envs\\' + args.release_id + '\\Scripts\\python.exe" -I -B -m workbench %* --config "%~dp0..\\config.json"\n')
+        if os.name == "nt":
+            launcher = runtime / "state/cli/bin/dmy.cmd"
+            # Keep batch source ASCII: cmd decodes literal Chinese paths using its code page.
+            # %~dp0 expands the Unicode launcher location without guessing the caller's CWD.
+            # Python 入口以 Unicode 配置定位工作区，runtime 不必在工作区内。
+            atomic(launcher.with_suffix('.py'), 'import sys\nfrom dummysys_cli.__main__ import main\nraise SystemExit(main(["--config", ' + json.dumps(str(config)) + ', *sys.argv[1:]]))\n')
+            atomic(launcher, '@echo off\nsetlocal DisableDelayedExpansion\n"%~dp0..\\..\\..\\envs\\' + args.release_id + '\\Scripts\\python.exe" -I -B "%~dp0dmy.py" %*\n')
+            wb_launch = runtime / "workbench/bin/workbench.cmd"
+            atomic(wb_launch, '@echo off\nsetlocal DisableDelayedExpansion\n"%~dp0..\\..\\envs\\' + args.release_id + '\\Scripts\\python.exe" -I -B -m workbench %* --config "%~dp0..\\config.json"\n')
+        else:
+            launcher = runtime / "state/cli/bin/dmy"
+            wb_launch = runtime / "workbench/bin/workbench"
+            for path, module, cfg in ((launcher, "dummysys_cli", config), (wb_launch, "workbench", wb_config)):
+                prefix = shlex.join([str(python), "-I", "-B", "-m", module, "--config", str(cfg)])
+                atomic(path, f'#!/bin/sh\nexec {prefix} "$@"\n', executable=True)
         atomic(runtime / "workbench/source.json", json.dumps(dict(schema_version=1, mode="wheel",
                config=str(wb_config), env=str(destination), python=str(python), release_id=args.release_id), ensure_ascii=False, indent=2))
     result = dict(ok=True, launcher=str(launcher), workbench_launcher=str(wb_launch), python=str(python),

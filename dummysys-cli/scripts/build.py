@@ -9,7 +9,7 @@ import sys
 
 CLI_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from packaging_env import packaging_environment
+from packaging_env import packaging_environment, venv_python
 
 
 def package_roots(workbench_root=None):
@@ -30,6 +30,7 @@ def main(argv=None):
     parser.add_argument("--output", type=Path, required=True, help="全新的 runtime 构建目录")
     parser.add_argument("--workbench-root", type=Path, help="默认同候选区的 dummysys/apps/workbench")
     parser.add_argument("--wheelhouse", type=Path, help="离线依赖 wheel 目录；指定后不访问包索引")
+    parser.add_argument("--desktop", action="store_true", help="包含本机原生窗口依赖")
     args = parser.parse_args(argv)
     if not args.output.is_absolute():
         parser.error("--output 必须为绝对路径")
@@ -56,7 +57,7 @@ def main(argv=None):
         return completed.stdout
     # 复用宿主 pip 定向安装，构建环境只保留后端，不再自带第二份 pip。
     run([sys.executable, "-I", "-m", "venv", "--without-pip", str(output / "env")], "venv")
-    python = output / "env/Scripts/python.exe"
+    python = venv_python(output / "env")
     pip = [sys.executable, '-I', '-m', 'pip', '--python', str(python)]
     run([*pip, 'install', '--disable-pip-version-check', '--only-binary=:all:',
          *dependency_options, 'setuptools>=68', 'wheel'], 'build-deps')
@@ -70,8 +71,9 @@ def main(argv=None):
         run([str(python), "-I", "-B", "-c", "import sys; from setuptools.build_meta import build_wheel; build_wheel(sys.argv[1])",
              str(output / "wheels")], f"package-{i}", cwd=stage)
     built = sorted((output / "wheels").glob("*.whl"))
-    run([*pip, "download", "--disable-pip-version-check", "--only-binary=:all:", *dependency_options,
-         "--dest", str(output / "wheels"), *map(str, built)], "dependencies")
+    run([*pip, "wheel", "--disable-pip-version-check", "--no-build-isolation",
+         "--only-binary=:all:", *(["--no-binary=proxy-tools"] if args.wheelhouse is None else []), *dependency_options,
+         "--wheel-dir", str(output / "wheels"), *(str(p) + ("[desktop]" if args.desktop and p.name.startswith("dummysys_workbench-") else "") for p in built)], "dependencies")
     # 同时保留构建后端 wheel，下次可直接用此目录离线重建。
     backend = json.loads(run([str(python), '-I', '-c',
         'import importlib.metadata as m,json;print(json.dumps({n:m.version(n) for n in ("setuptools","wheel")}))'],
@@ -79,7 +81,7 @@ def main(argv=None):
     run([*pip, 'download', '--disable-pip-version-check', '--only-binary=:all:', *dependency_options,
          '--dest', str(output / 'wheels'), *(name+'=='+version for name,version in backend.items())], 'backend-wheels')
     receipt = dict(schema_version=1, status="completed",
-                   offline=args.wheelhouse is not None, build_backend=backend,
+                   offline=args.wheelhouse is not None, desktop=args.desktop, build_backend=backend,
                    wheels={p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted((output / "wheels").glob("*.whl"))})
     (output / "build.json").write_text(json.dumps(receipt, indent=2), encoding="utf-8")
     print(json.dumps(dict(ok=True, wheels=str(output / "wheels"), receipt=str(output / "build.json")), ensure_ascii=False))
