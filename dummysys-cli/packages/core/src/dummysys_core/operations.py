@@ -9,8 +9,6 @@ from dummysys_core import locations as loc
 
 from contextlib import contextmanager, nullcontext
 from contextvars import ContextVar
-import ctypes
-from ctypes import wintypes
 import functools
 import hashlib
 import inspect
@@ -21,6 +19,7 @@ import tempfile
 import time
 from uuid import uuid4
 
+from .locking import supported_platform, workspace_mutex
 from . import __version__
 from .telemetry import span, measured
 
@@ -98,42 +97,30 @@ _external = ContextVar('dmy_external_writer', default=False)
 
 @contextmanager
 def workspace_lock(root, timeout=15, *, snapshot_locations=True):
-    key = os.path.normcase(str(Path(root).resolve()))
+    root = Path(root).resolve()
+    key = os.path.normcase(str(root))
     if key in _held.get():
         yield
         return
-    if os.name != 'nt':
-        raise GovernanceError('UNSUPPORTED_PLATFORM', '受管写入仅支持 Windows')
-    dll = ctypes.WinDLL('kernel32', use_last_error=True)
-    dll.CreateMutexW.argtypes = [ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR]
-    dll.CreateMutexW.restype = wintypes.HANDLE
-    dll.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
-    dll.WaitForSingleObject.restype = wintypes.DWORD
-    dll.ReleaseMutex.argtypes = [wintypes.HANDLE]
-    dll.ReleaseMutex.restype = wintypes.BOOL
-    dll.CloseHandle.argtypes = [wintypes.HANDLE]
-    dll.CloseHandle.restype = wintypes.BOOL
-    handle = dll.CreateMutexW(None, False, 'Global\\DUMMYSYS-' + digest(key.encode()))
-    if not handle:
-        raise GovernanceError('LOCK_FAILED', f'创建工作区互斥量失败：{ctypes.get_last_error()}')
-    acquired = False
+    if not supported_platform():
+        raise GovernanceError('UNSUPPORTED_PLATFORM', '受管操作仅支持 Windows 和 macOS')
     try:
+        lock = workspace_mutex(root)
         with span('lock_wait'):
-            result = dll.WaitForSingleObject(handle, int(timeout * 1000))
-        if result not in (0, 0x80):  # abandoned mutex still grants ownership
-            code = 'LOCK_BUSY' if result == 0x102 else 'LOCK_FAILED'
-            raise GovernanceError(code, '工作区正在写入或互斥量不可用，请稍后重试')
-        acquired = True
+            acquired = lock.acquire(timeout)
+    except OSError as error:
+        raise GovernanceError('LOCK_FAILED', '无法获取工作区锁', errno=error.errno) from error
+    if not acquired:
+        raise GovernanceError('LOCK_BUSY', '工作区正在写入，请稍后重试')
+    try:
         token = _held.set(_held.get() | {key})
         try:
-            with loc.snapshot(Path(root).resolve()) if snapshot_locations else nullcontext():
+            with loc.snapshot(root) if snapshot_locations else nullcontext():
                 yield
         finally:
             _held.reset(token)
     finally:
-        if acquired:
-            dll.ReleaseMutex(handle)
-        dll.CloseHandle(handle)
+        lock.release()
 
 
 def safe_target(root, relative):

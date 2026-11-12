@@ -10,6 +10,7 @@ import subprocess
 import sys
 from urllib.request import urlopen
 
+from dummysys_core.locking import supported_platform
 from dummysys_core import __version__
 from dummysys_core import workspace as core_workspace
 from .doccheck import check_docs
@@ -55,7 +56,7 @@ def doctor(ws, full=False):
     except (OSError,ValueError) as error:
         pending=[];pending_error=type(error).__name__
     root=ws.root
-    checks=[dict(name='platform',status='passed' if os.name=='nt' else 'failed'),
+    checks=[dict(name='platform',status='passed' if supported_platform() else 'failed'),
             dict(name='git',status='passed' if shutil.which('git') else 'failed'),
             dict(name='operations',status='failed' if pending or pending_error else 'passed',
                  pending=[{k:p.get(k) for k in ('operation_id','action','status','source_commit')} for p in pending],
@@ -97,7 +98,7 @@ def doctor(ws, full=False):
                 checks.append(dict(name=name,status='unavailable' if data.get('unavailable') else ('passed' if data['ok'] and p.returncode==0 else 'failed'),result=data))
             except (OSError,ValueError,subprocess.TimeoutExpired):
                 checks.append(dict(name=name,status='unavailable',next_action='单独运行校验器检查环境与 JSON 契约'))
-    guidance=dict(platform='使用本机 Windows 受管入口执行',git='核对 Git 安装与 PATH',
+    guidance=dict(platform='使用 Windows 或 macOS 的本机受管入口执行',git='核对 Git 安装与 PATH',
                   governance='运行 dmy check --json，逐项核对对象与派生入口；不要自动补造历史事实',
                   docs='运行 dmy check --docs --json，按维护映射修正文档、链接或生成式参考',
                   layout='使用安装环境运行 -m dummysys_core.validation.layout --root <工作区> --json，核对归属后处置',
