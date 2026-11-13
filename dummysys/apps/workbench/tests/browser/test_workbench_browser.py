@@ -215,7 +215,7 @@ class WorkbenchBrowserTests(BrowserCase):
         expect(icon).to_have_attribute("type", "image/svg+xml")
         brand = self.page.locator(".brand img")
         expect(brand).to_be_visible()
-        expect(brand).to_have_attribute("src", "/icons/app-icon.svg")
+        expect(brand).to_have_attribute("src", "/icons/workbench-logo.svg")
         self.page.wait_for_function("document.querySelector('.brand img').naturalWidth > 0")
         response = self.page.request.get(self.origin + "/icons/app-icon.svg")
         self.assertEqual(response.status, 200)

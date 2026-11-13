@@ -1,8 +1,8 @@
 # Workbench
 
-<img src="workbench/static/icons/app-icon.svg" width="96" height="96" alt="Workbench 图标">
+<img src="workbench/static/icons/workbench-logo.svg" width="96" height="96" alt="Workbench 图标">
 
-浏览器标签页和工作台侧栏直接使用 `workbench/static/icons/app-icon.svg`。Windows 原生窗口使用从同一 SVG 生成的 `app-icon.ico`。更新 SVG 时同步导出 256 × 256 的白底 PNG，再用 Pillow 生成含 16、24、32、48、64、128、256 像素图层的 ICO。
+工作台侧栏使用透明底的 `workbench-logo.svg`，浏览器标签页使用白底的 `app-icon.svg`。两份 SVG 都在 `workbench/static/icons/`。Windows 原生窗口使用从同一 SVG 生成的 `app-icon.ico`。更新 SVG 时同步导出 256 × 256 的白底 PNG，再用 Pillow 生成含 16、24、32、48、64、128、256 像素图层的 ICO。
 
 本机浏览器工作台：按 Project/Task/Run 浏览文档、资源和执行结果，提供受管治理入口。配置显式提供 workspace_root、task_root，路径相对配置文件解析。
 
