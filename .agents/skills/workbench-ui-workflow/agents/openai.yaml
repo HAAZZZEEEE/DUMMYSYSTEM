@@ -1,0 +1,6 @@
+interface:
+  display_name: "Workbench UI 工作流"
+  short_description: "为 Workbench 组织设计方案、前端实现、浏览器验收和设计记忆"
+  default_prompt: "使用 $workbench-ui-workflow 改进 Workbench 的页面体验，按影响选择设计探索或直接实现。"
+policy:
+  allow_implicit_invocation: true
