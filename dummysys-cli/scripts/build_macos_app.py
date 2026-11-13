@@ -49,11 +49,15 @@ def main(argv=None):
                '--icon', str(icon), '--osx-bundle-identifier', 'org.dummysys.workbench', '--distpath', str(args.output / 'dist'),
                '--workpath', str(args.output / 'build'), '--specpath', str(args.output),
                '--collect-all', 'workbench', '--collect-all', 'dummysys_core', '--collect-all', 'dummysys_cli',
+               '--collect-data', 'webview',
                '--hidden-import', 'webview.platforms.cocoa', '--hidden-import', 'Foundation',
                '--hidden-import', 'AppKit', '--hidden-import', 'WebKit', str(entry)]
     with (args.output / 'build.log').open('wb') as log:
         subprocess.run(command, check=True, stdout=log, stderr=subprocess.STDOUT, cwd=args.output)
     bundle = args.output / 'dist/DUMMYSYS.app'
+    webview_js = bundle / 'Contents/Frameworks/webview/js'
+    if not any(webview_js.rglob('*.js')):
+        raise RuntimeError('The app bundle is missing pywebview JavaScript assets')
     (bundle / 'Contents/Resources/workbench-config.json').write_text(
         json.dumps({'config': str(args.config)}, ensure_ascii=False), encoding='utf-8')
     info_path = bundle / 'Contents/Info.plist'
