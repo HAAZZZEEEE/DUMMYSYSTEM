@@ -19,8 +19,8 @@ def window_icon(config: dict) -> str | None:
             raise RuntimeError('配置的工作台窗口图标不存在')
         return str(icon)
     if sys.platform == 'darwin' and getattr(sys, 'frozen', False):
-        icon = Path(sys.executable).parent.parent / 'Resources/DUMMYSYS.icns'
-        return str(icon) if icon.is_file() else None
+        # Let macOS render the bundled icon with its system mask and appearance.
+        return None
     icon = Path(__file__).resolve().parent / 'static' / 'icons' / 'app-icon.ico'
     return str(icon) if icon.is_file() else None
 
