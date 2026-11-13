@@ -9,6 +9,7 @@
       C748 317 643 212 512 212Z"/>
     <clipPath id="face-clip"><use href="#face"/></clipPath>
   </defs>
+  <rect width="1024" height="1024" fill="#fff"/>
   <use href="#face" fill="#fff"/>
   <path d="M0 0H512V1024H0Z" fill="#dadada" clip-path="url(#face-clip)"/>
   <use href="#face" fill="none" stroke="#000" stroke-width="30" stroke-linejoin="round"/>
