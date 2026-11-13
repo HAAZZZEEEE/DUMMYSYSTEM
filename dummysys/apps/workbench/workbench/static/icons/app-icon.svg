@@ -1,1 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#243247"/><path d="M16 16h16a16 16 0 0 1 0 32H16z" fill="none" stroke="#8fdbc6" stroke-width="6"/><path d="M24 25h10M24 33h14M24 41h10" stroke="#fff" stroke-width="3"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>DUMMYSYS Workbench</title>
+  <defs>
+    <path id="face" d="M512 212
+      C381 212 276 317 276 450
+      C276 553 333 640 425 674
+      L512 812 L601 674
+      C693 640 748 553 748 450
+      C748 317 643 212 512 212Z"/>
+    <clipPath id="face-clip"><use href="#face"/></clipPath>
+  </defs>
+  <use href="#face" fill="#fff"/>
+  <path d="M0 0H512V1024H0Z" fill="#dadada" clip-path="url(#face-clip)"/>
+  <use href="#face" fill="none" stroke="#000" stroke-width="30" stroke-linejoin="round"/>
+  <g fill="#ff2d28">
+    <circle cx="402" cy="485" r="58"/>
+    <circle cx="622" cy="485" r="58"/>
+  </g>
+</svg>

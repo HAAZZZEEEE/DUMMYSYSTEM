@@ -130,6 +130,9 @@ body.sidebar-resizing { cursor: col-resize; user-select: none; }
 body.sidebar-resizing * { cursor: col-resize !important; user-select: none !important; }
 .sidebar-header { padding: var(--sp-md) var(--sp-md) var(--sp-sm); }
 .brand {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.01em;
