@@ -1,5 +1,7 @@
 # Workbench
 
+开发与 UI 设计默认同时面向 Windows/macOS。开始修改先读 [实现入口](AGENTS.md) 和 [默认双平台开发规则](../../../docs/development.md#默认双平台开发)；环境识别、共享逻辑与平台适配由开发者主动处理，无需用户逐次指定。
+
 <img src="workbench/static/icons/workbench-logo.svg" width="96" height="96" alt="Workbench 图标">
 
 工作台侧栏使用透明底的 `workbench-logo.svg`，浏览器标签页使用白底的 `app-icon.svg`。两份 SVG 都在 `workbench/static/icons/`。Windows 原生窗口使用从同一 SVG 生成的 `app-icon.ico`。更新 SVG 时同步导出 256 × 256 的白底 PNG，再用 Pillow 生成含 16、24、32、48、64、128、256 像素图层的 ICO。
