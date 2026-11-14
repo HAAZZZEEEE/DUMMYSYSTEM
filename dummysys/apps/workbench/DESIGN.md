@@ -19,6 +19,41 @@ serves the active workspace; primary content is the project/task information,
 directory or document being inspected. Controls communicate current location
 and operation scope. Prefer task clarity over decorative differentiation.
 
+## Accepted direction: opaque floating surfaces
+
+This direction is selected for the redesign and has been explored in isolated
+prototypes. **Production implementation is pending.** The inherited sections
+below continue to describe the current application; this specification change
+does not deploy or replace its interface.
+
+- Keep two adjustable areas: project display and project browser. Project,
+  Task and Run remain a hierarchy, with their owning context always available.
+  Do not prescribe a fixed width ratio.
+- The project browser owns homepage/content switching. A project supplies its
+  own customizable homepage, which can expand by hiding the project display.
+  Content mode contains file navigation and preview, with visible document,
+  resource and repository tabs rather than a location dropdown.
+- Use opaque surfaces, fine borders and neutral drop shadows to convey depth.
+  Main panels have the broadest shadows; selected rows and small controls use
+  lighter elevation. Avoid backdrop blur, translucent glass, decorative halos
+  and edge-glow effects. Keep the visible keyboard focus ring.
+- Selected projects and Runs use raised, outlined surfaces. Repeat the visual
+  treatment in the browser context to communicate the current relationship.
+  Use consistent line icons for project identity instead of initial-letter tiles.
+- Prioritize readable names and secondary metadata. Recognize canonical Task
+  numbers/dates and Run timestamps for separate, subdued presentation while
+  preserving the full original name and path. Unrecognized names remain intact.
+- Make the workspace display name configurable, separate from the Workbench
+  product name. Preserve search, contextual actions, resizing and focus behavior.
+- Use system fonts with Chinese and Windows fallbacks. Keep light/dark themes,
+  readable contrast, long-name wrapping and reduced-motion support. Surface
+  hierarchy is shared across platforms; native platform behavior still needs
+  platform-specific verification.
+
+Exact spacing, shadow values and animation timings remain subject to focused
+refinement and implementation verification. Personal proposals, feedback history
+and prototype files remain outside the source repository.
+
 ## Inherited visual baseline
 
 Sources: workbench/static/styles.css, overview.css, theme.js and the rendered
