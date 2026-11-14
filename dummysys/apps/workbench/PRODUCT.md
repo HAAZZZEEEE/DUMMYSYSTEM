@@ -7,31 +7,47 @@ web
 ## Purpose and audience
 
 DUMMYSYS Workbench is a local, desktop-first browser and optional native-window
-interface for an individual developer working with coding agents. It helps the
-user find a project's current context, inspect documents and resources, follow
-Task/Run evidence, and continue work across sessions.
+interface for an individual developer working with coding agents.
+
+The product is a **browse-and-search-first personal workbench**
+（陈列／搜索优先的个人工作台）. Its primary purpose is to organize projects,
+files, Tasks and Runs so the user can find things and revisit past records.
+Detailed reading of an individual file is a supporting activity.
 
 The interface should make project context and available actions understandable
 without requiring knowledge of the underlying storage or execution machinery.
 
 ## Core tasks
 
-1. Find and switch projects through navigation, pinned/recent items or search.
-2. Read the project homepage and current Task context; inspect Runs and evidence.
-3. Navigate document/resource/repository roots and preview files without losing
-   the current location.
-4. Search for a task, run or file and navigate to its owning context.
+1. Browse organized project, document, resource and repository locations, with
+   enough context to recognize the item being sought.
+2. Search for a project, Task, Run or file, distinguish similar results, and
+   navigate to the correct owning location.
+3. Revisit past Tasks, Runs, outcomes and evidence. Keep recent visits distinct
+   from execution history: opening an item is not an execution event.
+4. Inspect a selected item's context or preview when needed, preserving the
+   current listing, filters and location when returning.
 5. Perform supported managed operations with clear scope, state and recoverable
    feedback; open external applications when the relevant capability exists.
 
 ## Experience priorities
 
-- Efficient navigation, lists, controls and managed actions.
-- Comfortable reading of previews and current project/task explanations.
+- Give organized listings, search and historical context priority in the main
+  workspace. Browsing and keyword lookup are complementary ways to find things.
+- Make result identity clear through useful names, types, owning project/Task,
+  relative location, and relevant time or status; avoid requiring an item to be
+  opened merely to identify it.
+- Make historical outcomes and evidence easy to trace to their Task and Run.
+- Keep previews and extended reading available on demand, secondary to finding
+  and revisiting items.
 - Clear location and scope, efficient scanning, readable Chinese/mixed-language
   names, keyboard support, predictable feedback and error recovery.
 - Preserve learned interaction patterns during focused refinements. Make major
   navigation or density changes visible for comparison before implementation.
+
+This priority does not select a specific sidebar, search layout, default entry
+page or preview placement. Those remain design decisions to evaluate against
+the primary finding and history-review tasks.
 
 ## Implementation and boundaries
 
