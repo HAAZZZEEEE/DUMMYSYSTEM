@@ -19,7 +19,7 @@ serves the active workspace; primary content is the project/task information,
 directory or document being inspected. Controls communicate current location
 and operation scope. Prefer task clarity over decorative differentiation.
 
-## Accepted direction: opaque floating surfaces
+## Accepted direction: floating panels with glass navigation
 
 This direction is selected for the redesign and has been explored in isolated
 prototypes. **Production implementation is pending.** The inherited sections
@@ -28,17 +28,21 @@ does not deploy or replace its interface.
 
 - Keep two adjustable areas: project display and project browser. Project,
   Task and Run remain a hierarchy, with their owning context always available.
-  Do not prescribe a fixed width ratio.
+  A Task is a complete group containing its indented Runs. Do not present
+  Project, Task and Run as equally elevated cards. Do not prescribe a fixed
+  width ratio.
 - The project browser owns homepage/content switching. A project supplies its
   own customizable homepage, which can expand by hiding the project display.
   Content mode contains file navigation and preview, with visible document,
   resource and repository tabs rather than a location dropdown.
-- Use opaque surfaces, fine borders and neutral drop shadows to convey depth.
-  Main panels have the broadest shadows; selected rows and small controls use
-  lighter elevation. Avoid backdrop blur, translucent glass, decorative halos
-  and edge-glow effects. Keep the visible keyboard focus ring.
-- Selected projects and Runs use raised, outlined surfaces. Repeat the visual
-  treatment in the browser context to communicate the current relationship.
+- Keep task and reading surfaces opaque. Use translucent glass, backdrop blur,
+  restrained background halos and bright edges on navigation and outer panels.
+  Main panels retain broad neutral shadows; internal rows and small controls
+  use much lighter elevation. Provide opaque fallbacks when transparency is
+  reduced or unsupported. Keep the visible keyboard focus ring.
+- Selected projects use lightly raised surfaces. Task groups use a neutral
+  boundary; selected Runs use a shallow tinted surface within their parent.
+  Keep the corresponding project/task/run context visible in the browser.
   Use consistent line icons for project identity instead of initial-letter tiles.
 - Prioritize readable names and secondary metadata. Recognize canonical Task
   numbers/dates and Run timestamps for separate, subdued presentation while
