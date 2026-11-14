@@ -1,7 +1,5 @@
 # Workbench product context
 
-<!-- impeccable:product-schema 1 -->
-
 ## Platform
 
 web
@@ -13,9 +11,8 @@ interface for an individual developer working with coding agents. It helps the
 user find a project's current context, inspect documents and resources, follow
 Task/Run evidence, and continue work across sessions.
 
-The user can judge visual quality and usability without specifying professional
-design terminology. The agent should recommend concrete improvements and
-show alternatives when consequential direction is unresolved.
+The interface should make project context and available actions understandable
+without requiring knowledge of the underlying storage or execution machinery.
 
 ## Core tasks
 
@@ -29,8 +26,8 @@ show alternatives when consequential direction is unresolved.
 
 ## Experience priorities
 
-- Operate mode for navigation, lists, controls and managed actions.
-- Read mode for previews and current project/task explanations.
+- Efficient navigation, lists, controls and managed actions.
+- Comfortable reading of previews and current project/task explanations.
 - Clear location and scope, efficient scanning, readable Chinese/mixed-language
   names, keyboard support, predictable feedback and error recovery.
 - Preserve learned interaction patterns during focused refinements. Make major
@@ -54,5 +51,6 @@ application as an incidental part of a visual change.
 ## Context ownership
 
 This file is the reusable product brief. DESIGN.md owns the technical design
-specification. User-specific feedback, proposal decisions and execution status
-live in the owning DUMMYSYS Vault Task; artifacts live in runtime.
+specification. Update this brief when the target audience, core tasks, product priorities, or
+supported scope changes. Keep implementation details in the relevant technical
+documentation.

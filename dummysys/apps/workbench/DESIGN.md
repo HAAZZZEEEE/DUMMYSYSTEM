@@ -9,7 +9,7 @@ establishing this workflow.
 
 Preserve this baseline for ordinary additions and focused fixes. A user-chosen
 new direction updates only the affected rules. Record the decision and reason
-in the owning Vault Task, then update this file and its generated projection.
+with the relevant change, then update this specification.
 Unchosen proposals never become current design rules.
 
 ## Product surfaces
@@ -83,27 +83,9 @@ first, then fix demonstrated deficiencies within scope. Reduced-motion settings
 disable animation/transition; preserve this. Avoid motion that delays repeated
 navigation or makes layout unstable.
 
-## Confirmed workflow constraints
+## Maintaining this specification
 
-- Significant unresolved structure/visual direction is shown as real comparable
-  alternatives with a recommendation before the user chooses.
-- Routine spacing/alignment/state fixes do not need repeated design approval.
-- Accepted elements survive iteration; arbitrary style resets and cosmetic-only
-  “alternatives” do not satisfy a request for meaningful exploration.
-- Keep business content and function equivalent between proposals. Do not add
-  marketing copy, decorative dashboards or fabricated metrics to fill a layout.
-- Record meaningful user feedback and decisions; a synthetic test verdict must
-  never become a real preference.
-
-## Synchronization
-
-`.interface-design/system.md` is generated from this entire file and includes
-its SHA-256. From the repository root, run:
-
-```sh
-python3 .agents/skills/workbench-ui-workflow/scripts/sync_design.py --app-root dummysys/apps/workbench
-python3 .agents/skills/workbench-ui-workflow/scripts/sync_design.py --app-root dummysys/apps/workbench --check
-```
-
-Inspect an independently modified projection before regenerating it. Impeccable
-reads this canonical file from the app root.
+Update the affected rules when a product design decision is confirmed. Keep
+inherited behavior distinct from newly accepted rules and unresolved proposals.
+Check the implementation and rendered result when documenting a rule; unselected
+proposals do not replace the current specification.
