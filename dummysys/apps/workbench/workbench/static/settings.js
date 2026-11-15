@@ -13,7 +13,8 @@ export function wireSettings() {
     dialog.showModal();
     wireMeta();
     button.setAttribute('aria-expanded', 'true');
-    document.getElementById('theme-select').focus();
+    dialog.querySelector('.settings-body').scrollTop = 0;
+    dialog.querySelector('input[name="settings-theme"]:checked').focus({ preventScroll: true });
   };
   document.getElementById('settings-close').onclick = () => dialog.close();
   dialog.addEventListener('keydown', (event) => {

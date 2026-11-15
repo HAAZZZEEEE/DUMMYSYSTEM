@@ -216,47 +216,78 @@
 </dialog>
 
 <dialog id="settings-dialog" data-testid="settings-dialog" class="settings-dialog" aria-labelledby="settings-title">
-  <header class="settings-header"><div><h2 id="settings-title">设置</h2><p>让工作台适合你的浏览习惯</p></div><button id="settings-close" class="icon-btn" aria-label="关闭设置" title="关闭设置">×</button></header>
-  <section class="settings-section" aria-labelledby="appearance-title">
-    <h3 id="appearance-title">外观</h3>
-    <div class="settings-row"><label for="workspace-name-input">工作空间名称</label><input id="workspace-name-input" data-testid="workspace-name-input" type="text" placeholder="个人工作空间" autocomplete="off" aria-describedby="workspace-name-note"></div>
-    <p id="workspace-name-note" class="settings-note">显示在左上角，最多 40 个字符。留空使用默认名称。</p>
-    <div class="settings-row"><label for="theme-select">主题</label><select id="theme-select" data-testid="theme-select" aria-label="主题"><option value="system">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select></div>
-    <h4 id="accent-title">重点色</h4>
-    <div id="accent-presets" class="accent-presets" role="group" aria-labelledby="accent-title"></div>
-    <div class="accent-custom"><label for="accent-color">自定义</label><input id="accent-color" data-testid="accent-color" type="color" value="#0066cc" aria-label="重点色色盘"><label for="accent-hex" class="sr-only">重点色十六进制值</label><input id="accent-hex" data-testid="accent-hex" type="text" value="#0066cc" maxlength="7" spellcheck="false" autocomplete="off" aria-label="重点色十六进制值" aria-describedby="accent-note settings-status"></div>
-    <div class="accent-preview"><span class="accent-original-dot" aria-hidden="true"></span><span>所选原色 <strong id="accent-value">#0066CC</strong></span><span class="accent-sample">选中效果</span></div>
-    <p id="accent-note" class="settings-note">深浅主题已适配文字与焦点对比度，界面颜色可能与原色略有不同。</p>
-  </section>
-  <section class="settings-section" aria-labelledby="taskview-title">
-    <h3 id="taskview-title">任务视图</h3>
-    <div class="settings-row"><label for="task-view-select">渲染样式</label><select id="task-view-select" data-testid="task-view-select" aria-label="任务视图渲染样式"><option value="indent">缩进连线</option><option value="cards">卡片分组</option></select></div>
-    <p class="settings-note">切换左侧「任务与运行」的呈现方式，不影响路径树。</p>
-  </section>
-  <section class="settings-section" aria-labelledby="identity-title">
-    <h3 id="identity-title">治理身份</h3>
-    <div class="settings-row"><label for="actor-input">当前负责人</label><input id="actor-input" data-testid="actor-input" type="text" maxlength="64" spellcheck="false" autocomplete="off" placeholder="填写后才可新建/编辑任务与运行" aria-describedby="actor-note"></div>
-    <p id="actor-note" class="settings-note">写操作会以这个身份记入治理流水（dmy --actor）。只允许当前负责者维护任务状态。</p>
-  </section>
-  <section class="settings-section" aria-labelledby="runtime-title">
-    <h3 id="runtime-title">运行版本</h3>
-    <dl class="settings-meta">
-      <div><dt>版本</dt><dd data-testid="meta-version">—</dd></div>
-      <div><dt>源码提交</dt><dd data-testid="meta-sha">—</dd></div>
-      <div><dt>安装来源</dt><dd data-testid="meta-source">—</dd></div>
-    </dl>
-    <p class="settings-note">运行版本来自当前安装。更新后重启工作台即可使用新版本。</p>
-  </section>
-  <section class="settings-section" aria-labelledby="service-title">
-    <h3 id="service-title">服务</h3>
-    <div class="settings-row">
-      <label for="btn-restart-service">重启服务</label>
-      <button id="btn-restart-service" data-testid="restart-service" class="btn ghost" aria-describedby="restart-note">重启</button>
-    </div>
-    <p id="restart-note" class="settings-note">停止当前实例后重新启动并打开窗口。端口与会话都会更换，本窗口会失效，请改用新窗口。</p>
-  </section>
-  <section class="settings-section" aria-labelledby="shortcuts-title"><h3 id="shortcuts-title">快捷键</h3><dl class="settings-shortcuts"><div><dt>快速跳转</dt><dd><kbd data-primary-key>Ctrl</kbd> + <kbd>K</kbd></dd></div><div><dt>全局搜索</dt><dd><kbd data-primary-key>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>F</kbd></dd></div><div><dt>筛选当前目录</dt><dd><kbd>/</kbd></dd></div><div><dt>关闭对话框</dt><dd><kbd>Esc</kbd></dd></div></dl></section>
-  <footer class="settings-footer"><button id="settings-reset" data-testid="settings-reset" class="btn ghost">恢复默认外观</button><p id="settings-status" role="status" aria-live="polite">更改后自动保存</p></footer>
+  <header class="settings-header">
+    <h2 id="settings-title">设置</h2>
+    <button id="settings-close" class="icon-btn" type="button" aria-label="关闭设置" title="关闭设置">×</button>
+  </header>
+  <div class="settings-body">
+    <section class="settings-section" aria-labelledby="appearance-title">
+      <h3 id="appearance-title">外观</h3>
+      <div class="settings-card">
+        <div class="settings-row">
+          <span id="theme-title">主题</span>
+          <div class="settings-theme" role="radiogroup" aria-labelledby="theme-title">
+            <label><input type="radio" name="settings-theme" value="system" data-testid="theme-system" checked><span>跟随系统</span></label>
+            <label><input type="radio" name="settings-theme" value="light" data-testid="theme-light"><span>浅色</span></label>
+            <label><input type="radio" name="settings-theme" value="dark" data-testid="theme-dark"><span>深色</span></label>
+          </div>
+        </div>
+        <h4 id="accent-title">重点色</h4>
+        <div id="accent-presets" class="accent-presets" role="group" aria-labelledby="accent-title"></div>
+        <div class="accent-controls">
+          <div class="accent-custom">
+            <label for="accent-color">自定义</label>
+            <input id="accent-color" data-testid="accent-color" type="color" value="#0066cc" aria-label="重点色色盘">
+            <input id="accent-hex" data-testid="accent-hex" type="text" value="#0066cc" maxlength="7" spellcheck="false" autocomplete="off" aria-label="重点色十六进制值" aria-describedby="accent-note settings-status">
+          </div>
+          <div class="accent-preview" aria-label="重点色预览"><span class="accent-original-dot" aria-hidden="true"></span><strong id="accent-value" title="所选原色">#0066CC</strong><span class="accent-sample">选中效果</span></div>
+        </div>
+        <p id="accent-note" class="settings-note">重点色会随深浅主题调整对比度。</p>
+      </div>
+    </section>
+    <section class="settings-section" aria-labelledby="workspace-settings-title">
+      <h3 id="workspace-settings-title">工作空间</h3>
+      <div class="settings-card">
+        <div class="settings-row settings-row-text">
+          <div><label for="workspace-name-input">名称</label><p id="workspace-name-note" class="settings-note">最多 40 个字符。留空使用默认名称。</p></div>
+          <input id="workspace-name-input" data-testid="workspace-name-input" type="text" placeholder="个人工作空间" autocomplete="off" aria-describedby="workspace-name-note">
+        </div>
+        <div class="settings-row"><label for="density-select">目录行距</label><select id="density-select"><option value="comfortable">舒适</option><option value="compact">紧凑</option></select></div>
+        <div class="settings-row"><label for="task-view-select">任务视图</label><select id="task-view-select" data-testid="task-view-select"><option value="indent">缩进连线</option><option value="cards">卡片分组</option></select></div>
+        <div class="settings-row settings-row-text">
+          <div><label for="actor-input">当前负责人</label><p id="actor-note" class="settings-note">治理写操作以此身份记入流水。</p></div>
+          <input id="actor-input" data-testid="actor-input" type="text" maxlength="64" spellcheck="false" autocomplete="off" aria-describedby="actor-note">
+        </div>
+      </div>
+    </section>
+    <section class="settings-section" aria-labelledby="runtime-title">
+      <h3 id="runtime-title">运行</h3>
+      <div class="settings-card">
+        <dl class="settings-meta">
+          <div><dt>版本</dt><dd data-testid="meta-version">—</dd></div>
+          <div><dt>源码提交</dt><dd data-testid="meta-sha">—</dd></div>
+          <div><dt>安装来源</dt><dd data-testid="meta-source">—</dd></div>
+        </dl>
+        <div class="settings-row settings-service">
+          <div><span>工作台服务</span><p id="restart-note" class="settings-note">重启后请使用新打开的工作台窗口。</p></div>
+          <button id="btn-restart-service" data-testid="restart-service" class="btn ghost" type="button" aria-describedby="restart-note">重启</button>
+        </div>
+      </div>
+    </section>
+    <details class="settings-card settings-help">
+      <summary>快捷键</summary>
+      <dl class="settings-shortcuts">
+        <div><dt>快速跳转</dt><dd><kbd data-primary-key>Ctrl</kbd> + <kbd>K</kbd></dd></div>
+        <div><dt>全局搜索</dt><dd><kbd data-primary-key>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>F</kbd></dd></div>
+        <div><dt>筛选当前目录</dt><dd><kbd>/</kbd></dd></div>
+        <div><dt>关闭对话框</dt><dd><kbd>Esc</kbd></dd></div>
+      </dl>
+    </details>
+  </div>
+  <footer class="settings-footer">
+    <p id="settings-status" role="status" aria-live="polite">更改后自动保存</p>
+    <button id="settings-reset" data-testid="settings-reset" class="btn ghost" type="button">恢复默认外观</button>
+  </footer>
 </dialog>
 <script type="module" src="/app.js"></script>
 </body>

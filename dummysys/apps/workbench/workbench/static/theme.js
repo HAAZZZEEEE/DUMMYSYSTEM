@@ -47,7 +47,8 @@ function palette(raw, dark) {
 export function createTheme(session, flash) {
   const $ = (id) => document.getElementById(id);
   const media = matchMedia('(prefers-color-scheme: dark)');
-  const select = $('theme-select'), picker = $('accent-color'), field = $('accent-hex'), status = $('settings-status');
+  const themeOptions = document.querySelectorAll('input[name="settings-theme"]');
+  const picker = $('accent-color'), field = $('accent-hex'), status = $('settings-status');
   const nameInput = $('workspace-name-input'), nameLabel = $('workspace-name');
   let theme = 'system', accent = DEFAULT_ACCENT, revision = 0, pending = 0;
   function apply() {
@@ -57,7 +58,7 @@ export function createTheme(session, flash) {
     root.dataset.themePreference = theme;
     root.dataset.accentColor = accent;
     for (const [name, value] of Object.entries(palette(accent, actual === 'dark'))) root.style.setProperty(name, value);
-    select.value = theme;
+    for (const option of themeOptions) option.checked = option.value === theme;
     picker.value = accent;
     field.value = accent;
     field.removeAttribute('aria-invalid');
@@ -105,7 +106,14 @@ export function createTheme(session, flash) {
     $('accent-presets').append(button);
   }
   media.addEventListener('change', apply);
-  select.addEventListener('change', () => { theme = select.value; apply(); save({ theme }); });
+  for (const option of themeOptions) {
+    option.addEventListener('change', () => {
+      if (!option.checked) return;
+      theme = option.value;
+      apply();
+      save({ theme });
+    });
+  }
   picker.addEventListener('input', () => setAccent(picker.value, false));
   picker.addEventListener('change', () => setAccent(picker.value, true));
   field.addEventListener('change', () => setAccent(field.value, true));

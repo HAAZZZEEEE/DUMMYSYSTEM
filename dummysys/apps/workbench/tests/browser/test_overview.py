@@ -139,7 +139,7 @@ class OverviewBrowserTests(BrowserCase):
         self.page.get_by_role('button', name='回到首页', exact=True).click()
         expect(self.page.locator('.ov-project')).to_have_count(2)
         self.page.get_by_role('button', name='设置', exact=True).click()
-        self.page.get_by_label('主题', exact=True).select_option('dark')
+        self.page.get_by_role('radio', name='深色', exact=True).click()
         self.page.get_by_role('button', name='关闭设置', exact=True).click()
         expect(self.page.locator('html')).to_have_attribute('data-theme', 'dark')
         self.page.screenshot(path=str(self.output / 'overview-dark.png'), full_page=True)

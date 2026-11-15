@@ -252,15 +252,15 @@ class WorkbenchBrowserTests(BrowserCase):
     def test_theme_three_states_persist_and_follow_system_with_screenshots(self):
         self.project()
         self.enter(SPECIAL)
-        select = self.page.get_by_test_id("theme-select")
         html = self.page.locator("html")
         for preference in ("light", "dark", "system"):
+            option = self.page.get_by_test_id(f"theme-{preference}")
             self.page.locator('#btn-settings').click()
             with self.page.expect_response(lambda response: response.url.endswith('/api/v1/preferences') and response.request.method == 'PATCH' and response.request.post_data_json.get('theme') == preference):
-                select.select_option(preference)
+                option.click()
             self.page.reload()
             self.ready(SPECIAL)
-            expect(select).to_have_value(preference)
+            expect(option).to_be_checked()
             expect(html).to_have_attribute("data-theme-preference", preference)
             for system in ("light", "dark"):
                 self.page.emulate_media(color_scheme=system)

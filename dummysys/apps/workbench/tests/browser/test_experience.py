@@ -92,7 +92,7 @@ class ExperienceTests(BrowserCase):
         self.project()
         self.page.screenshot(path=str(self.output / 'workspace-light.png'))
         self.page.locator('#btn-settings').click()
-        self.page.locator('#theme-select').select_option('dark')
+        self.page.get_by_test_id('theme-dark').click()
         self.page.locator('#settings-close').click()
         expect(self.page.locator('html')).to_have_attribute('data-theme', 'dark')
         self.page.screenshot(path=str(self.output / 'workspace-dark.png'))

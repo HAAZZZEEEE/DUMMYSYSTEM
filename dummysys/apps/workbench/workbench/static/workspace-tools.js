@@ -120,16 +120,13 @@ export function createWorkspaceTools(nav, session, flash) {
       toggleFocus();
     }
   });
-  const densityRow = document.createElement('label'); densityRow.className = 'density-setting';
-  densityRow.textContent = '目录行距';
-  const density = select('density-select', '目录行距', [['comfortable', '舒适'], ['compact', '紧凑']], async value => {
+  const density = $('density-select');
+  density.onchange = async () => {
     density.disabled = true;
-    try { await session.save({ density: value }); }
+    try { await session.save({ density: density.value }); }
     catch (error) { flash(`行距未保存：${error.message}`); applyDensity(session.preferences); }
     finally { density.disabled = false; }
-  });
-  densityRow.append(density);
-  $('settings-close').before(densityRow);
+  };
   function applyDensity(prefs) {
     density.value = prefs.density || 'comfortable';
     document.documentElement.dataset.density = density.value;

@@ -88,6 +88,11 @@ Compact toolbar selectors use low-contrast pills, and adjacent primary and
 secondary actions use the same height. The sticky table header blends into
 the file list without a drawn bottom edge.
 
+Settings use a glass outer panel and opaque groups for Appearance, Workspace,
+and Runtime. The title and close control stay above the scroll area, and
+save feedback and appearance reset stay below it. Theme uses three native
+radio options in a shallow pill track. Shortcut reference opens on demand.
+
 ## Navigation and actions
 
 - Preserve keyboard-operable separators, file-list and preview toggling, focus
