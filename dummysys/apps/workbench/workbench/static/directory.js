@@ -19,18 +19,6 @@ export function createDirectory(nav, session, actions, flash, preview) {
   let visibleColumns = [];
   let rendered = null;
   let rowGeneration = -1;
-  function sortHeader(cell, label) {
-    const [[ascending], [descending]] = directorySorts[cell.dataset.column];
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'directory-sort-header';
-    button.textContent = label;
-    button.setAttribute('aria-label', `按${label}排序`);
-    button.title = cell.dataset.column === 'type' ? '按扩展名排序' : `按${label}排序`;
-    button.onclick = () => nav.options({ sort: nav.state.sort === ascending ? descending : ascending });
-    cell.replaceChildren(button);
-  }
-  sortHeader(header.querySelector('[data-column="name"]'), '名称');
   function syncPreviewSelection(value) {
     const key = value && JSON.stringify(value);
     for (const row of body.querySelectorAll('tr[data-target]')) {
@@ -147,7 +135,7 @@ export function createDirectory(nav, session, actions, flash, preview) {
       cell.scope = 'col';
       cell.className = 'directory-detail';
       cell.dataset.column = key;
-      sortHeader(cell, columns[key].label);
+      cell.textContent = columns[key].label;
       if (columns[key].hint) cell.title = columns[key].hint;
       header.lastElementChild.before(cell);
     }
@@ -203,21 +191,31 @@ function mountColumnSettings(session, flash, onChange) {
   const options = document.getElementById('directory-column-options');
   const reset = document.getElementById('directory-columns-reset');
   const rows = new Map();
+  const defaultOrder = Object.keys(columns);
   let previous = '';
+  let previousVisible = '';
   const firstChoice = () => options.querySelector('input:not(:disabled)');
 
+  function columnState(prefs) {
+    const visible = new Set(prefs.directory_columns || []);
+    // Old preferences store only the visible columns. Start with their saved
+    // order until the user customizes the order of all optional columns.
+    const order = [...new Set([...(prefs.directory_column_order || []), ...visible, ...defaultOrder])];
+    return { visible, order };
+  }
+
   function apply(prefs, force = false) {
-    const selected = prefs.directory_columns || [];
-    const key = selected.join(',');
+    const { visible, order } = columnState(prefs);
+    const selected = order.filter(name => visible.has(name));
+    const visibleKey = selected.join(',');
+    const key = JSON.stringify([order, selected]);
     if (key === previous && !force) return;
     const focus = options.contains(document.activeElement) ? document.activeElement : null;
-    const order = [...selected, ...[...rows.keys()].filter(name => !selected.includes(name))];
-    for (const name of order) {
+    for (const [position, name] of order.entries()) {
       const { row, check, up, down } = rows.get(name);
-      const position = selected.indexOf(name);
-      check.checked = position >= 0;
-      up.disabled = position <= 0;
-      down.disabled = position < 0 || position === selected.length - 1;
+      check.checked = visible.has(name);
+      up.disabled = position === 0;
+      down.disabled = position === order.length - 1;
       options.append(row);
     }
     if (focus) {
@@ -225,14 +223,22 @@ function mountColumnSettings(session, flash, onChange) {
       next.focus({ preventScroll: true });
     }
     const resetFocused = document.activeElement === reset;
-    reset.disabled = !selected.length;
+    reset.disabled = !selected.length && order.every((name, index) => name === defaultOrder[index]);
     if (resetFocused && reset.disabled) firstChoice().focus({ preventScroll: true });
-    if (key !== previous) onChange(selected);
+    if (visibleKey !== previousVisible) onChange(selected);
+    previousVisible = visibleKey;
     previous = key;
   }
 
   function save(change) {
-    session.save(prefs => ({ directory_columns: change(prefs.directory_columns || []) })).catch(error => {
+    session.save(prefs => {
+      const state = columnState(prefs);
+      change(state);
+      return {
+        directory_columns: state.order.filter(name => state.visible.has(name)),
+        directory_column_order: state.order,
+      };
+    }).catch(error => {
       apply(session.preferences, true);
       flash(`目录列未保存：${error.message}`);
     });
@@ -248,7 +254,10 @@ function mountColumnSettings(session, flash, onChange) {
     label.append(check, column.label);
     check.onchange = () => {
       const checked = check.checked;
-      save(order => checked ? [...new Set([...order, key])] : order.filter(name => name !== key));
+      save(({ visible }) => {
+        if (checked) visible.add(key);
+        else visible.delete(key);
+      });
     };
     const move = (offset, text) => {
       const button = document.createElement('button');
@@ -257,14 +266,10 @@ function mountColumnSettings(session, flash, onChange) {
       button.setAttribute('aria-label', `${column.label}${text}`);
       button.title = button.getAttribute('aria-label');
       button.append(icon('up'));
-      button.onclick = () => save(order => {
+      button.onclick = () => save(({ order }) => {
         const from = order.indexOf(key);
         const to = from + offset;
-        if (from < 0 || to < 0 || to >= order.length) return order;
-        const next = [...order];
-        next.splice(from, 1);
-        next.splice(to, 0, key);
-        return next;
+        if (to >= 0 && to < order.length) [order[from], order[to]] = [order[to], order[from]];
       });
       return button;
     };
@@ -276,7 +281,10 @@ function mountColumnSettings(session, flash, onChange) {
     row.append(label, moves);
     rows.set(key, { row, check, up, down });
   }
-  reset.onclick = () => save(() => []);
+  reset.onclick = () => save(state => {
+    state.visible.clear();
+    state.order = defaultOrder;
+  });
   trigger.append(icon('config'));
   function positionPanel() {
     const anchor = trigger.getBoundingClientRect();

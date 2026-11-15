@@ -479,22 +479,6 @@
 .entries th[data-column="modified"] { min-width: 123px; }
 .entries th[data-column="type"] { min-width: 72px; }
 .entries [data-column="size"], .entries [data-column="file_count"] { text-align: end; }
-.directory-sort-header {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 0;
-  border: 0;
-  border-radius: 3px;
-  background: transparent;
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-}
-.directory-sort-header:hover, .entries th[aria-sort] .directory-sort-header { color: var(--accent); }
-.directory-sort-header::after { content: '↕'; font-size: 10px; }
-.entries th[aria-sort="ascending"] .directory-sort-header::after { content: '↑'; }
-.entries th[aria-sort="descending"] .directory-sort-header::after { content: '↓'; }
 .entries .col-act { width: 42px; min-width: 42px; padding-inline: 5px; text-align: end; }
 .entries th.col-act { inset-inline-end: 0; z-index: 2; padding-block: 3px; }
 #directory-columns-toggle { width: 27px; height: 27px; border-radius: var(--radius-pill); }
@@ -536,6 +520,7 @@
 .directory-column-option label:hover { background: var(--row-hover); }
 .directory-column-option input { accent-color: var(--accent); }
 .directory-column-option label:has(input:disabled) { color: var(--workspace-muted); cursor: default; }
+.directory-column-fixed { padding-inline-end: 6px; color: var(--workspace-muted); font-size: 11px; }
 .column-moves { display: flex; }
 .column-moves .icon-btn { width: 25px; height: 25px; }
 .column-down .type-icon { transform: rotate(180deg); }

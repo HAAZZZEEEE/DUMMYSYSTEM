@@ -26,7 +26,7 @@ class Preferences:
                 'theme': 'system', 'accent_color': '#0066cc', 'workspace_name': '', 'last_location': None,
                 'pinned_locations': [], 'recent_locations': [], 'sidebar_width': None,
                 'preview_width': None, 'preview_visible': True, 'task_view': 'indent', 'actor': 'workbench',
-                'density': 'comfortable', 'directory_columns': [], 'nav_sort': 'default',
+                'density': 'comfortable', 'directory_columns': [], 'directory_column_order': [], 'nav_sort': 'default',
                 'homepage_pins': {}, 'homepage_overrides': {}}
 
     @staticmethod
@@ -52,11 +52,13 @@ class Preferences:
                 # 过期视图值回退到默认样式，同时保留同一偏好文件中的其他设置。
                 if isinstance(saved, dict) and saved.get('task_view') not in ('indent', 'cards'):
                     saved = {key: value for key, value in saved.items() if key != 'task_view'}
-                if isinstance(saved, dict) and 'directory_columns' in saved:
-                    try:
-                        self._directory_columns(saved['directory_columns'])
-                    except InvalidTarget:
-                        saved.pop('directory_columns')
+                if isinstance(saved, dict):
+                    for key in ('directory_columns', 'directory_column_order'):
+                        if key in saved:
+                            try:
+                                self._directory_columns(saved[key])
+                            except InvalidTarget:
+                                saved.pop(key)
                 data.update(self._validate(saved))
             except (OSError, ValueError, CatalogError):
                 pass
@@ -137,7 +139,7 @@ class Preferences:
                 if value not in ('comfortable', 'compact'):
                     raise InvalidTarget('目录行距必须是 comfortable 或 compact')
                 out[key] = value
-            elif key == 'directory_columns':
+            elif key in ('directory_columns', 'directory_column_order'):
                 out[key] = Preferences._directory_columns(value)
             elif key == 'nav_sort':
                 if value not in ('default', 'name', 'name_desc', 'newest', 'oldest'):

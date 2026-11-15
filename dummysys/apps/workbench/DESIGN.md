@@ -78,9 +78,9 @@ Use the shell's surface, edge and shadow tokens for the two panels. Use the
 shared control tokens for inputs, buttons and dialogs. Directory rows have
 44px and 32px minimums in comfortable and compact density and grow for long
 names. The directory table defaults to Name. Its header settings expose Type,
-Modified, Size and File Count with a saved display order. Name stays first.
-Clicking any visible column heading sorts the entire directory before pagination.
-Clicking that heading again reverses the direction, with directories kept first.
+Modified, Size and File Count. Name stays first. In the column settings,
+moving an optional column changes its left-to-right position, including when
+it is hidden. Visibility and order survive reloads.
 File Count covers direct regular files of a listed directory. Size reports
 individual file sizes. The filename filter is a right-aligned pill in the same
 toolbar as directory sorting and type filtering, with wrapping in tight panes.

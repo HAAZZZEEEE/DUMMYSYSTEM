@@ -3,26 +3,49 @@ from browser_fixture import A, MANY, BrowserCase, expect
 
 
 class NarrowDirectoryTests(BrowserCase):
-    def test_header_sort_applies_before_paging_and_updates_direction(self):
+    def test_directory_sort_applies_before_paging(self):
         (self.docs[A] / MANY / '终点大文件.txt').write_bytes(b'x' * 200)
         self.application.save_preferences({'directory_columns': ['size']})
         self.page.reload()
         self.project()
         self.enter(MANY)
-        name = self.page.get_by_role('button', name='按名称排序', exact=True)
-        size = self.page.get_by_role('button', name='按大小排序', exact=True)
+        sort = self.page.get_by_label('目录排序', exact=True)
         header = self.page.locator('th[data-column="size"]')
         rows = self.page.get_by_test_id('directory-entry')
-        name.press('Enter')
+        sort.select_option('name_desc')
         expect(rows.first).to_contain_text('终点大文件.txt')
-        size.click()
+        sort.select_option('size')
         expect(header).to_have_attribute('aria-sort', 'ascending')
         expect(rows.first).to_contain_text('000')
-        size.click()
+        sort.select_option('size_desc')
         expect(header).to_have_attribute('aria-sort', 'descending')
         expect(rows.first).to_contain_text('终点大文件.txt')
-        expect(self.page.get_by_label('目录排序', exact=True)).to_have_value('size_desc')
         expect(rows).to_have_count(200)
+
+    def test_hidden_columns_keep_their_position_when_shown(self):
+        self.project()
+        trigger = self.page.get_by_test_id('directory-columns-toggle')
+        panel = self.page.get_by_role('dialog', name='列设置')
+        headings = self.page.locator('.entries thead [data-column]')
+        choices = panel.locator('.directory-column-option label')
+        trigger.click()
+        expect(panel.get_by_role('checkbox', name='名称', exact=True)).to_be_disabled()
+        panel.get_by_role('button', name='文件数上移').click()
+        expect(choices).to_have_text(['名称', '类型', '修改时间', '文件数', '大小'])
+        expect(headings).to_have_text(['名称'])
+        self.page.reload()
+        self.ready()
+        trigger.click()
+        expect(choices).to_have_text(['名称', '类型', '修改时间', '文件数', '大小'])
+        panel.get_by_role('checkbox', name='大小', exact=True).check()
+        count = panel.get_by_role('checkbox', name='文件数', exact=True)
+        count.check()
+        expect(headings).to_have_text(['名称', '文件数', '大小'])
+        count.uncheck()
+        expect(headings).to_have_text(['名称', '大小'])
+        count.check()
+        expect(headings).to_have_text(['名称', '文件数', '大小'])
+        self.page.screenshot(path=str(self.output / 'directory-column-order.png'))
 
     def test_column_choices_and_order_survive_reload(self):
         folder = self.docs[A] / '统计示例'

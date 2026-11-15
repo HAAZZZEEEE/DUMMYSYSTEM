@@ -184,6 +184,12 @@ class PreferencesTest(unittest.TestCase):
         self.assertEqual(prefs["directory_columns"], [])
         self.assertEqual(prefs["schema_version"], 1)
 
+    def test_name_is_excluded_from_optional_column_preferences(self):
+        application, _ = _app(self.ws, None)
+        for field in ("directory_columns", "directory_column_order"):
+            with self.subTest(field=field), self.assertRaises(InvalidTarget):
+                application.save_preferences({field: ["size", "name"]})
+
     def test_save_load_roundtrip(self):
         application, _ = _app(self.ws, None)
         application.save_preferences({"pinned_project_ids": [PID_A], "project_order": ["x", PID_A]})
