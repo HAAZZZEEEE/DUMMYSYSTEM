@@ -22,6 +22,7 @@ export function createNavigation() {
   let tasks = [];
   const locations = new Map();
   const pairedLocations = new Map();
+  const contentLocations = new Map();
   const isPaired = (rootId) => ['docs', 'resources'].includes(rootId);
   const locationKey = (value) => JSON.stringify([value.project_id, value.root_id]);
   const state = { generation: 0, target: null, roots: [], homepage: null, loading: false, error: null,
@@ -56,6 +57,17 @@ export function createNavigation() {
     if (task?.[other]) relative = task[other].relative_path + relative.slice(task[side].relative_path.length);
     return target({ ...current, root_id: rootId, relative_path: relative });
   }
+  function rememberLocation(value) {
+    locations.set(locationKey(value), value);
+    if (isPaired(value.root_id)) pairedLocations.set(value.project_id, value);
+    if (value.root_id !== 'homepage') contentLocations.set(value.project_id, value);
+  }
+  function contentTarget() {
+    const saved = contentLocations.get(state.target?.project_id);
+    if (saved && state.roots.some((root) => root.root_id === saved.root_id)) return target(saved);
+    const root = state.roots.find((item) => item.kind === 'docs') || state.roots[0];
+    return root ? rootTarget(root.root_id) : null;
+  }
   async function go(value, { historyMode = 'push', filter = '', refresh = false, preferHomepage = false } = {}) {
     if (historyMode !== 'none') state.kind = 'all';
     const oldProject = state.target?.project_id;
@@ -64,10 +76,7 @@ export function createNavigation() {
     Object.assign(state, { loading: !!value, error: null, resolved: null, entries: [], cursor: null, filter });
     if (oldProject !== value?.project_id) tasks = [];
     if (oldProject !== value?.project_id || refresh || (value && !value.root_id)) { state.roots = []; state.homepage = null; }
-    if (state.target?.root_id) {
-      locations.set(locationKey(state.target), state.target);
-      if (isPaired(state.target.root_id)) pairedLocations.set(state.target.project_id, state.target);
-    }
+    if (state.target?.root_id) rememberLocation(state.target);
     const ctx = context();
     if (historyMode !== 'none') history[`${historyMode}State`]({ workbench: true }, '', locationURL(state.target));
     emit();
@@ -91,8 +100,7 @@ export function createNavigation() {
           : state.roots.find((item) => item.kind === 'docs') || state.roots[0];
         if (!root) throw new Error('该项目没有可浏览的根目录。');
         state.target = target({ ...state.target, root_id: root.root_id, relative_path: '' });
-        locations.set(locationKey(state.target), state.target);
-        if (isPaired(state.target.root_id)) pairedLocations.set(state.target.project_id, state.target);
+        rememberLocation(state.target);
         ctx.target = state.target;
         history.replaceState({ workbench: true }, '', locationURL(state.target));
       }
@@ -107,7 +115,7 @@ export function createNavigation() {
       emit();
     }
   }
-  const nav = { state, context, emit, go, rootTarget,
+  const nav = { state, context, emit, go, rootTarget, contentTarget,
     scopeTarget() { return isPaired(state.target?.root_id) ? state.target : pairedLocations.get(state.target?.project_id); },
     setTasks(value) { tasks = value; },
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },

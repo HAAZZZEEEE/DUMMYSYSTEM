@@ -240,7 +240,7 @@ export function createQuickAccess(nav, session, flash) {
     });
     document.addEventListener('keydown', (event) => {
       if (event.defaultPrevented || event.altKey || (event.metaKey && !isMac)) return;
-      // Ctrl+K 聚焦左侧快速跳转（Ctrl+Shift+F 聚焦主区全局搜索，见 search.js）。
+      // Ctrl+K 聚焦快速跳转（Ctrl+Shift+F 聚焦全局搜索，见 search.js）。
       if (commandPressed(event) && !event.shiftKey && event.key.toLowerCase() === 'k') {
         if ([...document.querySelectorAll('dialog[open]')].length) return;
         event.preventDefault();
@@ -249,7 +249,12 @@ export function createQuickAccess(nav, session, flash) {
       } else if (!commandPressed(event) && !event.shiftKey && event.key === '/' && !open && !editable(event.target)) {
         if (document.querySelector('dialog[open]')) return;
         if ($('dir-filter').disabled || $('pane-toolbar').classList.contains('hidden')) return;
-        event.preventDefault(); $('dir-filter').focus();
+        event.preventDefault();
+        const showBrowser = $('btn-show-browser');
+        if (showBrowser.getClientRects().length) showBrowser.click();
+        const files = $('btn-files-toggle');
+        if (files.getAttribute('aria-expanded') === 'false') files.click();
+        $('dir-filter').focus();
       }
     });
   }

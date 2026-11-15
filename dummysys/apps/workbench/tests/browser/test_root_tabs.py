@@ -22,7 +22,7 @@ class RootTabsTests(BrowserCase):
         write_json(path, binding)
         self.page.locator('#btn-project-refresh').click()
         self.project()
-        expect(self.page.get_by_role('tab')).to_have_count(3)
+        expect(self.page.locator('#root-tabs').get_by_role('tab')).to_have_count(3)
 
     def open_repositories(self):
         self.page.get_by_role('tab', name='代码仓库', exact=True).click()

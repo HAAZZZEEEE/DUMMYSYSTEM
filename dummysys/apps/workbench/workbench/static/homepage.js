@@ -100,7 +100,7 @@ export function createHomepage(nav, session, flash) {
   });
   nav.subscribe(state => {
     const selected = state.target?.root_id === 'homepage';
-    host.classList.toggle('hidden', !selected);
+    host.classList.toggle('hidden', !selected || !!state.error);
     if (!selected || state.loading || state.error) { active = undefined; host.replaceChildren(); }
   });
   async function load(ctx) {

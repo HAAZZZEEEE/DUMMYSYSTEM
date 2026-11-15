@@ -4,6 +4,7 @@ import { metadata } from './actions.js';
 import { icon } from './icons.js';
 import { preserveNavScroll } from './interaction.js';
 import { sortNav } from './navsort.js';
+import { recordDate, recordDirectoryLabel, recordTime } from './record-label.js';
 
 // Run 状态迁移图：当前状态 → [{to, label, icon, danger}]
 const RUN_TRANSITIONS = {
@@ -23,12 +24,12 @@ const RUN_TRANSITIONS = {
 
 const STYLES = new Set(['indent', 'cards']);
 const TASK_LIMIT = 5;
-const STATUS_MARK = { completed: '✓', running: '●', failed: '✕', cancelled: '—', planned: '○', archived: '▣', deleted: '×' };
+const STATUS_ICONS = { completed: 'check', running: 'play', failed: 'xmark', cancelled: 'ban', planned: 'clock', archived: 'archive', deleted: 'xmark' };
+const TASK_STATUS = { active: '进行中', blocked: '受阻', awaiting_acceptance: '待验收', completed: '已完成', cancelled: '已取消' };
 const STATUS_TEXT = { completed: '完成', running: '运行中', failed: '失败', cancelled: '取消', planned: '计划', archived: '已归档', deleted: '已删除', unknown: '未知' };
 const STATUS_ORDER = ['completed', 'running', 'failed', 'cancelled', 'planned', 'archived', 'unknown'];
 // 闭环（completed）与取消（cancelled）之外的状态（failed/running/planned/缺失）保留展开，便于关注未收口的运行。
 const SETTLED = new Set(['completed', 'cancelled', 'archived']);
-const shortTime = (value) => (value || '').replace('T', ' ').slice(5, 16);
 const shortDate = (value) => {
   const digits = String(value || '').slice(0, 10).replace(/-/g, '');
   return /^\d{8}$/.test(digits) ? `${digits.slice(4, 6)}-${digits.slice(6, 8)}` : '';
@@ -43,25 +44,40 @@ export function createTaskView(nav, actions, flash, ptr) {
   let payload = null;
   let style = 'indent';
   let sort = 'default';
+  let query = '';
+  let range = 'all';
   // task.name -> true 折叠 / false 展开；未手动切换过时按 Run 状态取默认。
   const folds = new Map();
+  const completedOpen = new Map();
   const archiveOpen = new Map();
-  const archiveKey = () => nav.state.target?.project_id || '';
+  const projectKey = () => nav.state.target?.project_id || '';
   const taskListOpen = new Map();
   let lastScope = null;
+  let runGroupId = 0;
 
-  function selectedTask(task, scope = nav.scopeTarget()) {
-    return scope && [task.docs, task.resource].some((value) => value &&
-      value.project_id === scope.project_id && value.root_id === scope.root_id &&
-      (scope.relative_path === value.relative_path || scope.relative_path.startsWith(`${value.relative_path}/`)));
+  const foldKey = (task) => JSON.stringify([projectKey(), task.task_id || task.name]);
+  function contains(value, scope = nav.scopeTarget()) {
+    return value && scope && value.project_id === scope.project_id && value.root_id === scope.root_id &&
+      (scope.relative_path === value.relative_path || scope.relative_path.startsWith(`${value.relative_path}/`));
+  }
+  function selectedTask(task, scope) {
+    return [task.docs, task.resource].some((value) => contains(value, scope));
+  }
+  function runTitle(run) {
+    return run.title === run.name ? recordDirectoryLabel(run.name)?.title || run.title : run.title;
+  }
+  function matchesTask(task) {
+    return !query || [task.title, task.name, `#${task.task_number}`, TASK_STATUS[task.status],
+      ...task.runs.map((run) => [run.title, run.name, STATUS_TEXT[run.status]].join(' '))]
+      .join(' ').toLocaleLowerCase().includes(query);
   }
 
   function statusMark(status) {
     const span = document.createElement('span');
     span.className = `tv-status tv-status-${status || 'unknown'}`;
     span.setAttribute('aria-hidden', 'true');
-    span.textContent = STATUS_MARK[status] || '·';
-    span.title = status || '状态未知';
+    span.append(icon(STATUS_ICONS[status] || 'clock'));
+    span.title = STATUS_TEXT[status || 'unknown'] || status;
     return span;
   }
 
@@ -70,11 +86,11 @@ export function createTaskView(nav, actions, flash, ptr) {
   }
 
   function foldedOf(task) {
-    return folds.has(task.name) ? folds.get(task.name) : defaultFolded(task);
+    return folds.get(foldKey(task)) ?? defaultFolded(task);
   }
 
   function setFolded(task, folded) {
-    folds.set(task.name, folded);
+    folds.set(foldKey(task), folded);
     render();
   }
 
@@ -131,7 +147,7 @@ export function createTaskView(nav, actions, flash, ptr) {
     line.style.setProperty('--tv-depth', spec.depth || 0);
     if (spec.testid) mark(line, spec.testid, spec.target);
     if (spec.target) line.dataset.targetKey = JSON.stringify(target(spec.target));
-    const selected = nav.state.target && JSON.stringify(target(nav.state.target)) === line.dataset.targetKey;
+    const selected = contains(spec.target);
     line.setAttribute('aria-selected', String(!!selected));
     const label = document.createElement('span');
     label.className = 'tv-label';
@@ -141,7 +157,10 @@ export function createTaskView(nav, actions, flash, ptr) {
     meta.className = 'tv-meta';
     meta.textContent = spec.meta || '';
     if (spec.meta) meta.title = spec.meta;
-    line.append(label, meta);
+    const text = document.createElement('div');
+    text.className = 'tv-run-text';
+    text.append(label, meta);
+    line.append(text);
     line.title = spec.info?.reason || spec.info?.native_path || spec.title;
     line.onclick = (event) => { event.stopPropagation(); spec.onActivate(); };
     line.onkeydown = (event) => {
@@ -152,7 +171,7 @@ export function createTaskView(nav, actions, flash, ptr) {
   }
 
   function taskCard(task) {
-    const open = !foldedOf(task);
+    const open = !!query || !foldedOf(task);
     const card = document.createElement('div');
     card.className = 'tv-task';
     card.dataset.taskName = task.name;
@@ -164,6 +183,7 @@ export function createTaskView(nav, actions, flash, ptr) {
     const snap = task.target ? target(task.target) : null;
     if (snap) mark(head, 'task-node', snap);
     const selected = selectedTask(task);
+    card.classList.toggle('tv-current', selected);
     head.setAttribute('aria-selected', String(!!selected));
     head.setAttribute('aria-expanded', String(open));
 
@@ -176,6 +196,8 @@ export function createTaskView(nav, actions, flash, ptr) {
     arrow.onclick = (event) => {
       event.stopPropagation();
       setFolded(task, open);
+      [...host.querySelectorAll('.tv-task')].find((item) => item.dataset.taskName === task.name)
+        ?.querySelector('.tv-toggle')?.focus({ preventScroll: true });
     };
     arrow.onkeydown = (event) => event.stopPropagation();
 
@@ -183,24 +205,27 @@ export function createTaskView(nav, actions, flash, ptr) {
     label.className = 'tv-label';
     label.textContent = task.title;
     label.title = task.name;
-    const number = mark(document.createElement('span'), 'task-number');
+    const number = document.createElement('span');
     number.className = 'tv-task-number';
-    number.textContent = `#${task.task_number ?? '—'}`;
+    if (task.task_number != null) {
+      const value = mark(document.createElement('span'), 'task-number');
+      value.textContent = `#${task.task_number}`;
+      number.append('任务 ', value);
+    }
     number.title = `任务序号：${task.task_number ?? '未提供'}`;
-    const badge = document.createElement('span');
-    badge.className = 'tv-badge';
-    badge.textContent = String(task.runs.length);
-    badge.title = `${task.runs.length} 个运行`;
     const meta = document.createElement('span');
     meta.className = 'tv-meta';
-    meta.textContent = `${task.date}${task.deleted ? ' 已删除' : task.archived ? ' 归档' : ''}${task.docs_missing ? ' 仅资源' : ''}`;
+    meta.textContent = [recordDate(task.date) || task.date, TASK_STATUS[task.status] || task.status,
+      task.deleted ? '已删除' : task.archived ? '已归档' : '', task.docs_missing ? '仅资源' : '']
+      .filter(Boolean).join(' · ');
+    const minor = document.createElement('div');
+    minor.className = 'tv-task-meta';
+    minor.append(number, meta);
+    const heading = document.createElement('div');
+    heading.className = 'tv-task-text';
+    heading.append(minor, label);
 
     // 治理动作；不可用项置灰并保留原因。分组横线按相近功能分开。
-    const gap = (id, label) => {
-      const op = id.replace(/-task$/, '');
-      const missingReason = ptr.missing('task', op);
-      return { id, label, disabled: !!missingReason, reason: missingReason, onClick: () => {} };
-    };
     const sep = { separator: true };
     const menu = task.target
       ? actions.menuButton(task.target, metadata(task), task.title, [
@@ -229,7 +254,7 @@ export function createTaskView(nav, actions, flash, ptr) {
       : document.createElement('span');
     menu.disabled = nav.state.loading;
 
-    head.append(arrow, number, label, badge, meta, menu);
+    head.append(arrow, heading, menu);
     if (task.target) actions.bindContextMenu(head, menu);
     const activate = () => {
       if (nav.state.loading) return;
@@ -244,7 +269,7 @@ export function createTaskView(nav, actions, flash, ptr) {
     head.onkeydown = (event) => {
       if (event.target !== head) return;
       if (event.key === 'Enter') { event.preventDefault(); activate(); }
-      if (event.key === ' ') {
+      if (event.key === ' ' || (event.key === 'ArrowLeft' && open) || (event.key === 'ArrowRight' && !open)) {
         event.preventDefault();
         setFolded(task, open);
       }
@@ -255,6 +280,14 @@ export function createTaskView(nav, actions, flash, ptr) {
       const list = document.createElement('div');
       list.className = 'tv-runs';
       list.setAttribute('role', 'group');
+      list.id = `task-runs-${++runGroupId}`;
+      head.setAttribute('aria-owns', list.id);
+      if (task.runs.length) {
+        const caption = document.createElement('div');
+        caption.className = 'tv-runs-caption';
+        caption.textContent = `运行记录 · ${task.runs.length}`;
+        list.append(caption);
+      }
       if (!task.runs.length) {
         const empty = document.createElement('div');
         empty.className = 'tv-empty';
@@ -264,12 +297,15 @@ export function createTaskView(nav, actions, flash, ptr) {
       for (const run of sortNav(task.runs, sort)) {
         const line = row({
           testid: 'run-node', target: run.target, depth: 1,
-          title: run.title, meta: run.archived ? '已归档' : shortTime(run.created_at) || run.status || '',
+          title: runTitle(run),
+          meta: [STATUS_TEXT[run.status] || run.status || '状态未知', recordTime(run.created_at, run.name)].filter(Boolean).join(' · '),
           info: run, classes: `tv-run tv-status-line-${run.status || 'unknown'}`,
           onActivate: () => go(run.target, run),
         });
         line.prepend(statusMark(run.status));
-        // 小图标快捷按钮：状态迁移，不带文字
+        const tools = document.createElement('div');
+        tools.className = 'tv-run-tools';
+        // 仍从各自的 Run 触发原有状态迁移与操作。
         for (const t of RUN_TRANSITIONS[run.status] || []) {
           const btn = document.createElement('button');
           btn.type = 'button';
@@ -278,7 +314,7 @@ export function createTaskView(nav, actions, flash, ptr) {
           btn.title = t.label;
           btn.setAttribute('aria-label', t.label);
           btn.onclick = (event) => { event.stopPropagation(); ptr.quickStatus(task, run, t.to); };
-          line.append(btn);
+          tools.append(btn);
         }
         const runMenu = actions.menuButton(run.target, metadata(run), run.title, [
           // 日常操作
@@ -293,7 +329,8 @@ export function createTaskView(nav, actions, flash, ptr) {
           { id: 'undelete-run', label: '取消删除…', onClick: () => ptr.undeleteRun(task, run) },
         ]);
         runMenu.disabled = nav.state.loading;
-        line.append(runMenu);
+        tools.append(runMenu);
+        line.append(tools);
         actions.bindContextMenu(line, runMenu);
         list.append(line);
       }
@@ -307,7 +344,7 @@ export function createTaskView(nav, actions, flash, ptr) {
   function orphanCard(run) {
     const line = row({
       testid: 'orphan-run-node', target: run.target, depth: 0,
-      title: run.title, meta: run.location_hint || run.parent_name || '',
+      title: runTitle(run), meta: run.location_hint || run.parent_name || '',
       info: run, classes: `tv-run tv-orphan tv-status-line-${run.status || 'unknown'}`,
       onActivate: () => go(run.target, run),
     });
@@ -323,7 +360,9 @@ export function createTaskView(nav, actions, flash, ptr) {
     return line;
   }
 
-  function renderTasks(tasks, container) {
+  function renderTasks(tasks, container, label) {
+    container.setAttribute('role', 'tree');
+    container.setAttribute('aria-label', label);
     for (const task of sortNav(tasks, sort)) {
       const card = taskCard(task);
       if (style === 'cards') card.classList.add('tv-card');
@@ -331,22 +370,17 @@ export function createTaskView(nav, actions, flash, ptr) {
     }
   }
 
-  function renderTaskList(tasks) {
+  function renderTaskList(tasks, revealScope) {
+    if (!tasks.length) return;
     const ordered = sortNav(tasks, sort);
-    const key = archiveKey();
-    const scope = nav.scopeTarget();
-    const scopeKey = JSON.stringify(scope || null);
-    // 从搜索、历史或目录跳入未显示的任务时，自动展示其导航位置。
-    if (scopeKey !== lastScope) {
-      lastScope = scopeKey;
-      if (ordered.slice(TASK_LIMIT).some((task) => selectedTask(task, scope))) taskListOpen.set(key, true);
-    }
-    const expanded = taskListOpen.get(key) || false;
+    const key = projectKey();
+    if (revealScope && ordered.slice(TASK_LIMIT).some((task) => selectedTask(task))) taskListOpen.set(key, true);
+    const expanded = !!query || taskListOpen.get(key) || false;
     const list = document.createElement('div');
     list.id = 'visible-task-list';
-    renderTasks(expanded ? ordered : ordered.slice(0, TASK_LIMIT), list);
+    renderTasks(expanded ? ordered : ordered.slice(0, TASK_LIMIT), list, '当前任务');
     host.append(list);
-    if (ordered.length <= TASK_LIMIT) return;
+    if (query || ordered.length <= TASK_LIMIT) return;
     const button = mark(document.createElement('button'), 'task-list-toggle');
     button.type = 'button';
     button.className = 'tv-more';
@@ -364,75 +398,145 @@ export function createTaskView(nav, actions, flash, ptr) {
     host.append(button);
   }
 
-  function renderArchive(tasks) {
+  function renderHistory(tasks, testid, label, opened, forceOpen, revealScope, defaultOpen = false) {
     if (!tasks.length) return;
-    const key = archiveKey();
-    const box = mark(document.createElement('details'), 'archived-tasks');
+    const key = projectKey();
+    const box = mark(document.createElement('details'), testid);
     box.className = 'tv-archive';
-    box.open = archiveOpen.get(key) || false;
+    if (revealScope && tasks.some((task) => selectedTask(task))) opened.set(key, true);
+    box.open = forceOpen || (opened.get(key) ?? defaultOpen);
     const summary = document.createElement('summary');
-    summary.textContent = `归档任务（${tasks.length}）`;
+    summary.textContent = `${label}（${tasks.length}）`;
     box.append(summary);
-    renderTasks(tasks, box);
+    const list = document.createElement('div');
+    renderTasks(tasks, list, label);
+    box.append(list);
     box.ontoggle = () => {
       if (!box.isConnected) return;
-      archiveOpen.set(key, box.open);
+      if (!forceOpen) opened.set(key, box.open);
       host.dispatchEvent(new CustomEvent('nav-expand-state', { bubbles: true }));
     };
     host.append(box);
   }
 
-  function renderOrphans() {
-    if (!payload.orphan_runs.length) return;
+  function renderOrphans(runs) {
+    if (!runs.length) return;
     const block = document.createElement('div');
     block.className = 'tv-orphans';
     const title = document.createElement('div');
     title.className = 'tv-group-title';
     title.textContent = '孤立运行';
     block.append(title);
-    for (const run of sortNav(payload.orphan_runs, sort)) block.append(orphanCard(run));
+    const list = document.createElement('div');
+    list.setAttribute('role', 'tree');
+    list.setAttribute('aria-label', '孤立运行');
+    for (const run of sortNav(runs, sort)) list.append(orphanCard(run));
+    block.append(list);
     host.append(block);
   }
 
+  function focusItem(item, preventScroll = false) {
+    if (!item) return;
+    item.closest('[role="tree"]').querySelector('[role="treeitem"][tabindex="0"]')?.setAttribute('tabindex', '-1');
+    item.tabIndex = 0;
+    item.focus({ preventScroll });
+  }
+
+  host.addEventListener('keydown', (event) => {
+    const item = event.target;
+    if (event.defaultPrevented || !item.matches('[role="treeitem"]')) return;
+    const items = [...item.closest('[role="tree"]').querySelectorAll('[role="treeitem"]')];
+    const index = items.indexOf(item);
+    const card = item.closest('.tv-task');
+    const destination = {
+      ArrowUp: () => items[index - 1],
+      ArrowDown: () => items[index + 1],
+      Home: () => items[0],
+      End: () => items.at(-1),
+      ArrowLeft: () => item.matches('.tv-run') ? card?.querySelector('.tv-task-head') : null,
+      ArrowRight: () => item.matches('.tv-task-head') ? card?.querySelector('.tv-run') : null,
+    }[event.key];
+    if (destination) {
+      event.preventDefault();
+      focusItem(destination());
+    }
+  });
+
   function render() {
-    const refocus = host.contains(document.activeElement) && document.activeElement.dataset.testid === 'task-list-toggle';
+    const active = document.activeElement;
+    const inside = host.contains(active);
+    const focusedKey = inside && active.matches('[role="treeitem"]') ? active.dataset.target : null;
     preserveNavScroll(host, renderContent);
-    if (refocus) host.querySelector('[data-testid="task-list-toggle"]')?.focus({ preventScroll: true });
+    if (inside && active.dataset.testid === 'task-list-toggle') {
+      host.querySelector('[data-testid="task-list-toggle"]')?.focus({ preventScroll: true });
+    } else if (focusedKey) {
+      const item = [...host.querySelectorAll('[role="treeitem"][data-target]')]
+        .find((row) => row.dataset.target === focusedKey && !row.closest('details:not([open])'));
+      focusItem(item, true);
+    }
   }
 
   function renderContent() {
     host.replaceChildren();
+    runGroupId = 0;
     host.dataset.taskView = style;
     if (!payload) return;
-    if (!payload.tasks.length && !payload.orphan_runs.length) {
+    const scope = nav.scopeTarget();
+    const scopeKey = JSON.stringify(scope || null);
+    const revealScope = scopeKey !== lastScope;
+    lastScope = scopeKey;
+    const tasks = payload.tasks.filter(matchesTask).filter((task) => {
+      if (range === 'active') return !task.archived && task.status === 'active';
+      if (range === 'completed') return !task.archived && task.status === 'completed';
+      return true;
+    });
+    const orphans = range === 'all' ? payload.orphan_runs.filter((run) =>
+      !query || [run.title, run.name, run.location_hint].join(' ').toLocaleLowerCase().includes(query)) : [];
+    if (!tasks.length && !orphans.length) {
       const empty = document.createElement('div');
       empty.className = 'tv-empty';
-      empty.textContent = '暂无任务';
+      empty.textContent = query || range !== 'all' ? '没有匹配的任务或运行' : '暂无任务';
       host.append(empty);
-      return;
+    } else {
+      if (revealScope && scope) {
+        for (const task of tasks) if (task.runs.some((run) => contains(run.target))) folds.set(foldKey(task), false);
+      }
+      const ordinary = tasks.filter((task) => !task.archived && task.status !== 'completed');
+      renderTaskList(ordinary, revealScope);
+      renderHistory(tasks.filter((task) => !task.archived && task.status === 'completed'),
+        'completed-tasks', '已完成任务', completedOpen, !!query || range === 'completed', revealScope, !ordinary.length);
+      renderHistory(tasks.filter((task) => task.archived), 'archived-tasks', '归档任务', archiveOpen, !!query, revealScope);
+      renderOrphans(orphans);
     }
-    renderTaskList(payload.tasks.filter((task) => !task.archived));
-    renderArchive(payload.tasks.filter((task) => task.archived));
-    renderOrphans();
     actions.syncMenu();
-    if (!host.querySelector('[tabindex="0"]')) host.querySelector('[role="treeitem"]')?.setAttribute('tabindex', '0');
+    for (const tree of host.querySelectorAll('[role="tree"]')) {
+      tree.querySelector('[role="treeitem"]')?.setAttribute('tabindex', '0');
+    }
     // 供工具栏单按钮同步展开/折叠态；stopPropagation 的行内折叠不冒泡 click，故用自定义事件。
     host.dispatchEvent(new CustomEvent('nav-expand-state', { bubbles: true }));
+  }
+
+  function setAllExpanded(expanded) {
+    const key = projectKey();
+    for (const group of [taskListOpen, completedOpen, archiveOpen]) group.set(key, expanded);
+    for (const task of payload?.tasks || []) folds.set(foldKey(task), !expanded);
+    render();
   }
 
   nav.subscribe(render);
   return {
     host,
     setMap(data) { payload = data; render(); },
+    setFilter(text, status) { query = text.trim().toLocaleLowerCase(); range = status; render(); },
     get tasks() { return payload?.tasks || []; },
-    setStyle(next) { if (!STYLES.has(next)) return; style = next; render(); },
+    setStyle(next) { if (!STYLES.has(next) || next === style) return; style = next; render(); },
     get style() { return style; },
     setSort(next) { if (sort === next) return; sort = next; lastScope = null; render(); },
-    expandAll() { taskListOpen.set(archiveKey(), true); archiveOpen.set(archiveKey(), true); for (const task of payload?.tasks || []) folds.set(task.name, false); render(); },
-    collapseAll() { taskListOpen.set(archiveKey(), false); archiveOpen.set(archiveKey(), false); for (const task of payload?.tasks || []) folds.set(task.name, true); render(); },
+    expandAll() { setAllExpanded(true); },
+    collapseAll() { setAllExpanded(false); },
     hasExpanded() {
-      return !!taskListOpen.get(archiveKey()) || (payload?.tasks || []).some((task) => task.archived
-        ? archiveOpen.get(archiveKey()) : !foldedOf(task));
+      return !!taskListOpen.get(projectKey()) ||
+        !!host.querySelector('details[open], .tv-task-head[aria-expanded="true"]');
     },
   };
 }

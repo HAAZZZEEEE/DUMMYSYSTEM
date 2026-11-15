@@ -76,6 +76,18 @@ class ExperienceTests(BrowserCase):
         expect(self.page.locator('html')).to_have_attribute('data-density', 'compact')
         self.assertLessEqual(self.page.locator('#entries-body tr').first.bounding_box()['height'], 34)
 
+    def test_workspace_name_is_saved_across_reload(self):
+        self.page.get_by_test_id('settings-button').click()
+        field = self.page.get_by_test_id('workspace-name-input')
+        field.fill('资料与工作记录')
+        field.press('Enter')
+        expect(self.page.locator('#settings-status')).to_have_attribute('data-state', 'saved')
+        self.page.keyboard.press('Escape')
+        expect(self.page.locator('#workspace-name')).to_have_text('资料与工作记录')
+        self.page.reload()
+        expect(self.page.locator('#workspace-name')).to_have_text('资料与工作记录')
+        self.assertEqual(self.application.load_preferences()['workspace_name'], '资料与工作记录')
+
     def test_visual_states_and_reduced_motion(self):
         self.project()
         self.page.screenshot(path=str(self.output / 'workspace-light.png'))

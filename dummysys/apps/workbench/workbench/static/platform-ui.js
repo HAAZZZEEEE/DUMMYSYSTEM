@@ -5,7 +5,6 @@ export const fileManager = isMac ? 'Finder' : '资源管理器';
 export const commandPressed = event => isMac ? event.metaKey : event.ctrlKey;
 const button = document.getElementById('btn-open-explorer');
 if (button) {
-  button.textContent = fileManager;
   button.title = button.ariaLabel = `在 ${fileManager} 中打开当前目录`;
 }
 for (const element of document.querySelectorAll('[data-primary-key]')) element.textContent = primaryKey;

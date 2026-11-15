@@ -23,7 +23,7 @@ class Preferences:
     @staticmethod
     def defaults() -> dict:
         return {'schema_version': 1, 'pinned_project_ids': [], 'project_order': [],
-                'theme': 'system', 'accent_color': '#0066cc', 'last_location': None,
+                'theme': 'system', 'accent_color': '#0066cc', 'workspace_name': '', 'last_location': None,
                 'pinned_locations': [], 'recent_locations': [], 'sidebar_width': None,
                 'preview_width': None, 'preview_visible': True, 'task_view': 'indent', 'actor': 'workbench', 'density': 'comfortable', 'nav_sort': 'default', 'homepage_pins': {}, 'homepage_overrides': {}}
 
@@ -146,6 +146,11 @@ class Preferences:
                     out[key] = value
                 else:
                     raise InvalidTarget('任务视图必须是 indent 或 cards')
+            elif key == 'workspace_name':
+                if (not isinstance(value, str) or len(value) > 40
+                        or any(ord(c) < 32 or ord(c) == 127 for c in value)):
+                    raise InvalidTarget('工作空间名称必须是不超过 40 字符的单行文本')
+                out[key] = value.strip()
             elif key == 'actor':
                 # 新设置与旧空身份均使用工作台默认操作人，保留已有自定义身份。
                 if not isinstance(value, str) or len(value) > 64 or any(ord(c) < 32 for c in value):

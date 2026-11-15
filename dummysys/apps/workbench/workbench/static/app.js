@@ -33,7 +33,7 @@ const taskView = createTaskView(navigation, actions, flash, ptr);
 const navPanel = createNavPanel(navigation, session, actions, tree, taskView, flash);
 reloadNav = () => navigation.reload(true);
 taskList = () => taskView.tasks;
-// 创建入口在主区「项目工具栏」，不再挤在导航栏。
+// 创建入口由当前项目的工具栏承载。
 ptr.mountToolbar();
 const view = createView(navigation, session, actions, tree, navPanel, preview);
 const theme = createTheme(session, flash);

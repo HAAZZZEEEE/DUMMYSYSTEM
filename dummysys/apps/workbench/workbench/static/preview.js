@@ -72,12 +72,19 @@ export function createPreview(nav, session, actions, flash) {
       toggle.setAttribute('aria-busy', 'false');
     }
   };
+  const listeners = new Set();
   let current = null;
+  function select(value) {
+    current = value;
+    listeners.forEach((listener) => listener(value));
+  }
   let version = 0;
 
   function clear() {
-    current = null;
+    select(null);
+    version += 1;
     title.textContent = '预览';
+    title.removeAttribute('title');
     body.replaceChildren();
     pane.dataset.state = 'empty';
     const empty = document.createElement('p');
@@ -114,11 +121,12 @@ export function createPreview(nav, session, actions, flash) {
 
   async function open(value, info = {}) {
     const snapshot = target(value);
-    current = snapshot;
+    select(snapshot);
     const at = ++version;
     const ctx = nav.context();
     pane.dataset.state = 'loading';
     title.textContent = info.name || snapshot.relative_path || '预览';
+    title.title = title.textContent;
     body.replaceChildren();
     const busy = document.createElement('p');
     busy.className = 'preview-empty';
@@ -151,6 +159,7 @@ export function createPreview(nav, session, actions, flash) {
     canPreview: (info) => isTextual(info),
     open,
     clear,
+    subscribe(listener) { listeners.add(listener); },
     get current() { return current; },
   };
 }

@@ -4,7 +4,7 @@ export const isEditing = (element) => !!element?.closest('input,textarea,select,
 // 重建导航子树时，临时缩小的内容高度会令浏览器将 scrollTop 钳制到顶部。
 // 同步恢复到原位置；折叠后超出最终范围时由浏览器自然钳制。
 export function preserveNavScroll(host, update) {
-  const scroller = host.closest('#sidebar-scroll');
+  const scroller = host.closest('#sidebar-scroll, #project-navigation');
   const top = scroller?.scrollTop;
   const left = scroller?.scrollLeft;
   try { return update(); }

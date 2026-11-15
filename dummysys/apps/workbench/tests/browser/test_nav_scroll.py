@@ -25,7 +25,7 @@ class NavScrollTests(BrowserCase):
         self.page.evaluate("() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))")
 
     def _position(self):
-        return self.page.locator("#sidebar-scroll").evaluate("el => el.scrollTop")
+        return self.page.locator("#project-navigation").evaluate("el => el.scrollTop")
 
     def _assert_stable(self, before):
         self._settle()

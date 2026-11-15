@@ -1,8 +1,24 @@
 """真实分隔条缩窄文件列表时，表头和文件名称必须保留可用空间。"""
-from browser_fixture import BrowserCase
+from browser_fixture import A, BrowserCase, expect
 
 
 class NarrowDirectoryTests(BrowserCase):
+    def test_record_labels_preserve_raw_targets_and_invalid_names(self):
+        name = '[task 12][20261028]核对中文长路径与项目浏览器显示的一致性'
+        invalid = '[task 13][20260230]原样显示的目录'
+        run_name = '[20261028-234505]复查中文目录'
+        (self.docs[A] / name / 'runs' / run_name).mkdir(parents=True)
+        (self.docs[A] / invalid).mkdir()
+        self.project()
+        task = self.row(name)
+        expect(task.locator('.entry-record-meta')).to_have_text('任务 #12 · 2026-10-28')
+        expect(task.locator('.name-text')).to_have_attribute('title', name)
+        expect(self.row(invalid).locator('.name-text')).to_have_text(invalid)
+        self.enter(name)
+        self.enter(name + '/runs')
+        expect(self.row(name + '/runs/' + run_name).locator('.entry-record-meta')).to_have_text('2026-10-28 · 23:45')
+        self.enter(name + '/runs/' + run_name)
+
     def test_narrow_list_keeps_header_text_inside_its_column(self):
         self.project()
         handle = self.page.get_by_test_id("preview-resizer")

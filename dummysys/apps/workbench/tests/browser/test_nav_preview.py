@@ -1,7 +1,7 @@
 """项目导航两组渲染、双视图切换与主区双栏预览。"""
 from __future__ import annotations
 
-from browser_fixture import A, BrowserCase, expect
+from browser_fixture import A, B, BrowserCase, expect
 
 TASK = "[task 1][20260921]工作台需求"
 TASK_B = "[task 2][20260922]无运行任务"
@@ -68,6 +68,29 @@ class NavPreviewTests(BrowserCase):
         for name in ("README.md", "AGENTS.md", TASK, TASK_B):
             expect(self.node(name)).to_have_count(0)
         self.assertFalse(any(call["target"]["relative_path"].startswith("[task ") for call in self.list_calls))
+
+    def test_filter_run_retains_owning_task_and_selection(self):
+        self._build_tasks()
+        self.project()
+        query = self.page.get_by_test_id('task-filter-query')
+        query.fill('修订文档')
+        expect(self.page.get_by_test_id('task-node')).to_have_count(1)
+        task = self.target_locator('task-node', TASK)
+        expect(task).to_contain_text('需求标题')
+        relative = TASK + '/runs/' + RUN_2
+        run = self.target_locator('run-node', relative, root='resources')
+        task.focus()
+        self.page.keyboard.press('ArrowDown')
+        expect(self.target_locator('run-node', TASK + '/runs/' + RUN_1, root='resources')).to_be_focused()
+        self.page.keyboard.press('ArrowDown')
+        expect(run).to_be_focused()
+        self.page.keyboard.press('Enter')
+        self.ready(relative, root='resources')
+        expect(run).to_have_attribute('aria-selected', 'true')
+        expect(task).to_have_attribute('aria-selected', 'true')
+        expect(query).to_have_value('修订文档')
+        self.project(B)
+        expect(query).to_have_value('')
 
     def test_task_without_runs_and_orphan_listed(self):
         self._build_tasks()

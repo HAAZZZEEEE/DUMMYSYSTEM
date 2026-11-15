@@ -1,8 +1,23 @@
 """预览开关的真实浏览器交互与保存失败回退。"""
-from browser_fixture import A, BrowserCase, expect
+from browser_fixture import A, SAME, BrowserCase, expect
 
 
 class PreviewToggleTests(BrowserCase):
+    def test_narrow_preview_returns_to_file_navigation(self):
+        self.project()
+        self.page.set_viewport_size({'width': 390, 'height': 844})
+        self.row(SAME).click()
+        expect(self.page.get_by_test_id('preview-pane')).to_have_attribute('data-state', 'ready')
+        expect(self.page.get_by_test_id('preview-pane')).to_be_visible()
+        expect(self.page.locator('#file-navigation')).to_be_hidden()
+        self.page.locator('#btn-files-toggle').click()
+        expect(self.page.locator('#file-navigation')).to_be_visible()
+        expect(self.row(SAME)).to_have_attribute('aria-current', 'true')
+        self.page.locator('#btn-show-projects').click()
+        expect(self.page.get_by_test_id('project-link').first).to_be_visible()
+        self.page.locator('#btn-show-browser').click()
+        expect(self.row(SAME)).to_be_visible()
+
     def test_visibility_persists_and_restores_content_width(self):
         (self.ws / 'dmy_vault' / '项目 A' / '预览.md').write_text('# 预览内容', encoding='utf-8')
         self.project()

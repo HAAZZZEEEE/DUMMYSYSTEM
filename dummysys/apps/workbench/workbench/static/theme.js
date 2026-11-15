@@ -48,6 +48,7 @@ export function createTheme(session, flash) {
   const $ = (id) => document.getElementById(id);
   const media = matchMedia('(prefers-color-scheme: dark)');
   const select = $('theme-select'), picker = $('accent-color'), field = $('accent-hex'), status = $('settings-status');
+  const nameInput = $('workspace-name-input'), nameLabel = $('workspace-name');
   let theme = 'system', accent = DEFAULT_ACCENT, revision = 0, pending = 0;
   function apply() {
     const actual = theme === 'system' ? (media.matches ? 'dark' : 'light') : theme;
@@ -73,7 +74,7 @@ export function createTheme(session, flash) {
       if (current === revision) { status.textContent = '设置已保存'; status.dataset.state = 'saved'; }
     } catch (error) {
       if (current === revision) {
-        status.textContent = `保存失败：${error.message}。当前仅为预览，请重新选择重试。`;
+        status.textContent = `保存失败：${error.message}。`;
         status.dataset.state = 'error';
         flash(status.textContent);
       }
@@ -112,6 +113,31 @@ export function createTheme(session, flash) {
     if (event.key === 'Enter') { event.preventDefault(); setAccent(field.value, true); }
   });
   $('settings-reset').onclick = () => { theme = 'system'; accent = DEFAULT_ACCENT; apply(); save({ theme, accent_color: accent }); };
+  function applyWorkspaceName(prefs) {
+    const name = prefs.workspace_name || '';
+    nameLabel.textContent = name || '个人工作空间';
+    nameLabel.title = nameLabel.textContent;
+    if (document.activeElement !== nameInput) nameInput.value = name;
+  }
+  nameInput.addEventListener('input', () => nameInput.removeAttribute('aria-invalid'));
+  nameInput.addEventListener('change', () => {
+    const name = nameInput.value.trim();
+    if ([...name].length > 40 || /[\u0000-\u001f\u007f]/u.test(name)) {
+      nameInput.setAttribute('aria-invalid', 'true');
+      status.textContent = '请输入不超过 40 个字符的单行名称。';
+      status.dataset.state = 'error';
+      return;
+    }
+    nameInput.value = name;
+    void save({ workspace_name: name });
+  });
+  nameInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && !event.isComposing) {
+      event.preventDefault();
+      nameInput.blur();
+    }
+  });
+  session.subscribe(applyWorkspaceName);
   wireSettings();
   session.subscribe?.((prefs) => {
     if (pending || $('settings-dialog').open) return;
@@ -120,6 +146,7 @@ export function createTheme(session, flash) {
     apply();
   });
   return { init() {
+    applyWorkspaceName(session.preferences);
     theme = themes.includes(session.preferences.theme) ? session.preferences.theme : 'system';
     accent = normalize(session.preferences.accent_color) || DEFAULT_ACCENT;
     apply();

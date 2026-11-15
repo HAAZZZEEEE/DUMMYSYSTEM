@@ -72,7 +72,7 @@ class TaskLimitTests(BrowserCase):
     def test_sort_before_limit_and_reveal_selected_task(self):
         self.prepare()
         self.page.get_by_test_id('nav-sort').select_option('name_desc')
-        expect(self.list.locator('.tv-task-head > .tv-label')).to_have_text(
+        expect(self.list.locator('.tv-task-head .tv-label')).to_have_text(
             ['任务08', '任务07', '任务06', '任务05', '任务04'])
         self.enter(self.names[0])  # 主区目录进入当前被隐藏的任务。
         expect(self.list.get_by_test_id('task-node')).to_have_count(8)

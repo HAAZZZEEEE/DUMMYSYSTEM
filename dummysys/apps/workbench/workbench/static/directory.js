@@ -1,11 +1,20 @@
 import { api, mark, target } from './api.js';
 import { metadata } from './actions.js';
 import { fileIcon } from './icons.js';
+import { recordDirectoryLabel } from './record-label.js';
 
 export function createDirectory(nav, session, actions, flash, preview) {
   const body = document.getElementById('entries-body');
   let rendered = null;
   let rowGeneration = -1;
+  function syncPreviewSelection(value) {
+    const key = value && JSON.stringify(value);
+    for (const row of body.querySelectorAll('tr[data-target]')) {
+      if (row.dataset.target === key) row.setAttribute('aria-current', 'true');
+      else row.removeAttribute('aria-current');
+    }
+  }
+  preview.subscribe(syncPreviewSelection);
   function render(state) {
     if (rendered === state.entries && rowGeneration === state.generation) {
       for (const row of body.querySelectorAll('tr[data-target]')) row.setAttribute('aria-disabled', String(state.loading));
@@ -48,9 +57,19 @@ export function createDirectory(nav, session, actions, flash, preview) {
       icon.setAttribute('aria-hidden', 'true');
       const text = document.createElement('span');
       text.className = 'name-text';
-      text.textContent = entry.name;
+      const record = entry.kind === 'dir' ? recordDirectoryLabel(entry.name) : null;
+      text.textContent = record?.title || entry.name;
       text.title = entry.name;
-      cell.append(icon, text);
+      const nameDetails = document.createElement('span');
+      nameDetails.className = 'entry-name';
+      nameDetails.append(text);
+      if (record) {
+        const details = document.createElement('span');
+        details.className = 'entry-record-meta';
+        details.textContent = record.metadata;
+        nameDetails.append(details);
+      }
+      cell.append(icon, nameDetails);
       name.append(cell);
       const type = document.createElement('td');
       type.className = 'type';
@@ -58,6 +77,10 @@ export function createDirectory(nav, session, actions, flash, preview) {
       const modified = document.createElement('td');
       modified.className = 'mod';
       modified.textContent = (entry.modified_at || '').replace('T', ' ').slice(0, 16);
+      const compactInfo = document.createElement('span');
+      compactInfo.className = 'entry-compact-meta';
+      compactInfo.textContent = [type.textContent, modified.textContent].filter(Boolean).join(' · ');
+      nameDetails.append(compactInfo);
       const menu = document.createElement('td');
       const menuButton = actions.menuButton(snapshot, info, entry.name, entry.kind === 'dir'
         ? [{ id: 'browse-target', label: '进入目录', onClick: () => nav.go(snapshot),
@@ -71,6 +94,7 @@ export function createDirectory(nav, session, actions, flash, preview) {
       actions.bindContextMenu(row, menuButton);
       body.append(row);
     }
+    syncPreviewSelection(preview.current);
     if (!state.loading && !state.error && state.target && !state.entries.length) {
       const row = document.createElement('tr');
       const cell = document.createElement('td');

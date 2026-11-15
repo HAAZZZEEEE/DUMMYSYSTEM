@@ -22,7 +22,23 @@ export function createNavPanel(nav, session, actions, tree, taskView, flash) {
   toolbar.append(caption, tools);
   const taskBlock = document.createElement('div');
   taskBlock.className = 'nav-group';
-  taskBlock.append(toolbar, taskView.host);
+  const filters = document.createElement('div');
+  filters.className = 'task-filters';
+  const query = mark(document.createElement('input'), 'task-filter-query');
+  query.type = 'search';
+  query.placeholder = '筛选任务或运行…';
+  query.setAttribute('aria-label', '筛选当前项目的任务或运行');
+  query.autocomplete = 'off';
+  const status = mark(document.createElement('select'), 'task-filter-status');
+  status.setAttribute('aria-label', '任务状态');
+  for (const [value, label] of [['all', '全部任务'], ['active', '进行中'], ['completed', '已完成']]) {
+    status.add(new Option(label, value));
+  }
+  const applyFilter = () => taskView.setFilter(query.value, status.value);
+  query.oninput = applyFilter;
+  status.onchange = applyFilter;
+  filters.append(query, status);
+  taskBlock.append(toolbar, filters, taskView.host);
   const treeCaption = document.createElement('div');
   treeCaption.className = 'nav-caption';
   treeCaption.textContent = '其他路径';
@@ -79,10 +95,16 @@ export function createNavPanel(nav, session, actions, tree, taskView, flash) {
     controller?.abort();
     controller = new AbortController();
     const version = ++request;
+    const changedProject = projectId !== nextProject;
     projectId = nextProject;
     summary.textContent = projectId ? '加载中…' : '';
     summary.removeAttribute('title');
     taskView.setMap(null);
+    if (changedProject) {
+      query.value = '';
+      status.value = 'all';
+      applyFilter();
+    }
     tree.setHidden(null);
     if (!projectId) return;
     const valid = () => version === request && nextProject === nav.state.target?.project_id;

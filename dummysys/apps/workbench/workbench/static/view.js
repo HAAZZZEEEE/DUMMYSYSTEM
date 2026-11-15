@@ -4,6 +4,7 @@ import { icon } from './icons.js';
 import { createWorkspaceTools } from './workspace-tools.js';
 import { preserveNavScroll } from './interaction.js';
 import { sortNav } from './navsort.js';
+import { recordDirectoryLabel } from './record-label.js';
 
 export const $ = (id) => document.getElementById(id);
 let flashTimer;
@@ -27,6 +28,13 @@ export function fatal(error) {
   $('bootstrap').append(heading, message, retry);
 }
 export function createView(nav, session, actions, tree, navPanel, preview) {
+  const layout = $('workspace-layout');
+  const stage = $('project-stage');
+  const stageScroll = $('project-navigation');
+  stageScroll.append(navPanel.host);
+  const homeTab = $('btn-project-home'), contentTab = $('btn-project-content');
+  const showcaseToggle = $('btn-showcase-toggle'), filesToggle = $('btn-files-toggle');
+  const content = $('project-content');
   const rootTabs = $('root-tabs');
   const rootStrip = $('root-tab-strip');
   const previousTabs = $('root-tabs-prev');
@@ -130,6 +138,44 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
   let deletedProjects = [];
   let diagnostics = [];
   let refreshVersion = 0;
+  let currentLocation;
+  function setShowcaseCollapsed(collapsed) {
+    layout.classList.toggle('showcase-collapsed', collapsed);
+    showcaseToggle.setAttribute('aria-expanded', String(!collapsed));
+    showcaseToggle.title = collapsed ? '展开项目陈列' : '收起项目陈列';
+    showcaseToggle.setAttribute('aria-label', showcaseToggle.title);
+  }
+  function setFilesCollapsed(collapsed) {
+    layout.classList.toggle('files-collapsed', collapsed);
+    filesToggle.setAttribute('aria-expanded', String(!collapsed));
+    filesToggle.title = collapsed ? '展开文件导航' : '收起文件导航';
+  }
+  function setMobileView(view) {
+    layout.dataset.mobileView = view;
+  }
+  function syncBrowserMode(state, home) {
+    const project = !!state.target?.project_id;
+    const hasHomepage = project && !!state.homepage;
+    $('project-mode').classList.toggle('hidden', !project || (!hasHomepage && !state.roots.length));
+    homeTab.classList.toggle('hidden', !hasHomepage);
+    homeTab.setAttribute('aria-selected', String(home));
+    contentTab.setAttribute('aria-selected', String(!home));
+    homeTab.tabIndex = home ? 0 : -1;
+    contentTab.tabIndex = home ? -1 : 0;
+    contentTab.disabled = !state.roots.length;
+    if (project) {
+      content.setAttribute('role', 'tabpanel');
+      content.setAttribute('aria-labelledby', contentTab.id);
+    } else {
+      content.removeAttribute('role');
+      content.removeAttribute('aria-labelledby');
+    }
+    showcaseToggle.classList.toggle('hidden', !home || !hasHomepage);
+    if (!home || !hasHomepage) setShowcaseCollapsed(false);
+    $('content-navigation').classList.toggle('hidden', !project || home);
+    filesToggle.disabled = !!state.error || session.preferences.preview_visible === false;
+    if (state.error || session.preferences.preview_visible === false) setFilesCollapsed(false);
+  }
   let lastSort = session.preferences.nav_sort || "default";
   session.subscribe((prefs) => {
     const next = prefs.nav_sort || "default";
@@ -146,8 +192,6 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
       const ia = order.indexOf(a.project_id), ib = order.indexOf(b.project_id);
       return (ia < 0 ? Infinity : ia) - (ib < 0 ? Infinity : ib);
     }), prefs.nav_sort || 'default');
-    // 移动既有导航 DOM，不丢失各节点缓存。
-    navPanel.host.remove();
     $('pinned-projects').replaceChildren();
     $('other-projects').replaceChildren();
     for (const project of sorted) {
@@ -167,7 +211,7 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
       const title = document.createElement('span');
       title.className = 'title';
       title.textContent = project.title + (project.deleted ? '（已删除）' : '');
-      link.append(title);
+      link.append(icon('project'), title);
       link.onclick = (event) => { event.preventDefault(); nav.go(snapshot); };
       const pin = mark(document.createElement('button'), 'project-pin', snapshot);
       pin.className = `pin-btn${pins.has(project.project_id) ? ' pinned' : ''}`;
@@ -192,7 +236,6 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
       };
       row.append(link, pin);
       group.append(row);
-      if (selected) group.append(navPanel.host);
       (pins.has(project.project_id) ? $('pinned-projects') : $('other-projects')).append(group);
     }
     $('project-diagnostics').classList.toggle('hidden', !diagnostics.length);
@@ -204,8 +247,23 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
     document.body.classList.toggle('project-home-active', home);
     const snapshot = value && target(value);
     const project = [...projects, ...deletedProjects].find((item) => item.project_id === value?.project_id);
-    $('project-title').textContent = project?.title || value?.project_id || 'DUMMYSYS 首页';
-    $('project-title').classList.toggle('idle', !value);
+    const projectName = project?.title || value?.project_id || '';
+    const title = $('project-title');
+    title.textContent = projectName || 'DUMMYSYS 首页';
+    title.title = title.textContent;
+    title.classList.toggle('idle', !value);
+    $('browser-project-icon').classList.toggle('hidden', !projectName);
+    $('stage-title').textContent = projectName;
+    stage.classList.toggle('hidden', !projectName);
+    layout.classList.toggle('has-project', !!projectName);
+    syncBrowserMode(state, home);
+    const locationKey = JSON.stringify(snapshot || null);
+    if (locationKey !== currentLocation) {
+      currentLocation = locationKey;
+      setFilesCollapsed(false);
+      if (preview.current) preview.clear();
+      setMobileView('browser');
+    }
     if (rootTabs.childElementCount) tabScrollLeft = rootTabs.scrollLeft;
     const scrollLeft = tabScrollLeft;
     const focusedRoot = rootTabs.contains(document.activeElement) ? document.activeElement.dataset.rootId : null;
@@ -238,17 +296,19 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
       }
     }
     const roots = state.roots.filter((root) => root.kind !== 'repo');
-    const tabs = state.homepage ? [{ root_id: 'homepage', label: '首页' }, ...roots] : [...roots];
+    const tabs = [...roots];
     if (repositories.length) tabs.push({ root_id: 'repositories',
       label: currentRepo ? `代码仓库：${currentRepo.label.replace(/^代码 /, '')}` : `代码仓库（${repositories.length}）` });
     if (tabs.length || !value) tabLocation = nextTabLocation;
+    const selectedRoot = currentRepo ? 'repositories' : value?.root_id;
+    const tabbableRoot = tabs.find((root) => root.root_id === selectedRoot) || tabs[0];
     for (const [index, root] of tabs.entries()) {
       const repoSelector = root.root_id === 'repositories';
       const rootTarget = repoSelector ? null : nav.rootTarget(root.root_id);
       const existing = existingTabs.get(root.root_id);
       const tab = mark(existing || document.createElement('button'), repoSelector ? 'repo-root-selector' : 'root-tab', rootTarget);
       const wasSelected = tab.classList.contains('active');
-      const selected = repoSelector ? !!currentRepo : root.root_id === value.root_id;
+      const selected = repoSelector ? !!currentRepo : root.root_id === value?.root_id;
       // 加载进度通知不重建按钮，保留正在播放的伪元素动画和键盘焦点。
       tab.classList.add('root-tab');
       tab.classList.toggle('active', selected);
@@ -260,8 +320,8 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
       tab.dataset.rootId = root.root_id;
       tab.setAttribute('role', 'tab');
       tab.setAttribute('aria-selected', String(selected));
-      tab.setAttribute('aria-label', repoSelector ? '代码仓库' : root.root_id === 'homepage' ? '项目首页' : `根目录：${root.label}`);
-      tab.tabIndex = selected ? 0 : -1;
+      tab.setAttribute('aria-label', repoSelector ? '代码仓库' : `根目录：${root.label}`);
+      tab.tabIndex = root === tabbableRoot ? 0 : -1;
       if (repoSelector) {
         tab.id = 'repo-root-trigger';
         tab.classList.add('repo-root-trigger');
@@ -312,7 +372,12 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
         const crumbTarget = target({ ...value, relative_path: parts.slice(0, i).join('/') });
         const link = mark(document.createElement('a'), 'breadcrumb', crumbTarget);
         link.href = locationURL(crumbTarget);
-        link.textContent = i === 0 ? root?.label || value.root_id || '项目根' : parts[i - 1];
+        const name = parts[i - 1];
+        const record = name && recordDirectoryLabel(name);
+        link.textContent = i === 0 ? root?.label || value.root_id || '项目根'
+          : record?.taskNumber ? `任务 #${record.taskNumber}` : record?.title || name;
+        if (name) link.title = name;
+        if (i === parts.length) link.setAttribute('aria-current', 'location');
         link.className = i === 0 ? 'root' : '';
         link.onclick = (event) => { event.preventDefault(); nav.go(crumbTarget); };
         if (i) { const sep = document.createElement('span'); sep.className = 'sep'; sep.textContent = '/'; $('crumbs').append(sep); }
@@ -341,10 +406,12 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
     // 项目工具栏作用于项目而非目录：选中项目即显示，目录出错也不隐藏。
     $('project-toolbar').classList.toggle('hidden', !value?.project_id);
     $('dir-summary').textContent = state.loading ? '加载中…' : resolved?.native_path || (value ? `${value.root_id} / ${value.relative_path}` : '');
-    $('dir-summary').title = resolved?.native_path || '';
+    $('crumb-bar').title = resolved?.native_path || '';
+    const crumbs = $('crumbs');
+    crumbs.scrollLeft = crumbs.scrollWidth;
     $('dir-view').setAttribute('aria-busy', String(state.loading));
     $('dir-view').classList.toggle('hidden', !value || !!state.error);
-    $('main-split').classList.toggle('hidden', !value || (home && !state.error));
+    content.classList.toggle('hidden', !value || (home && !state.error));
     $('empty-state').classList.toggle('hidden', !!value);
     $('pager').classList.toggle('hidden', !state.cursor || !!state.error);
     $('btn-more').disabled = state.loading;
@@ -359,7 +426,11 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
   }
   let lastSidebarProject;
   nav.subscribe((state) => {
-    if (lastSidebarProject !== state.target?.project_id) { lastSidebarProject = state.target?.project_id; sidebar(); }
+    if (lastSidebarProject !== state.target?.project_id) {
+      lastSidebarProject = state.target?.project_id;
+      stageScroll.scrollTop = 0;
+      sidebar();
+    }
     chrome(state);
   });
   function catalog(data) { projects = data.projects || []; deletedProjects = data.deleted_projects || []; diagnostics = data.diagnostics || []; sidebar(); }
@@ -367,6 +438,41 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
     wireResizer();
     wirePreviewResizer();
     createWorkspaceTools(nav, session, flash);
+    $('browser-project-icon').append(icon('project'));
+    $('global-search-icon').append(icon('search'));
+    for (const [id, glyph] of Object.entries({
+      'btn-project-refresh': 'refresh', 'btn-back': 'back', 'btn-refresh': 'refresh',
+      'btn-up': 'up', 'btn-open-vscode': 'code', 'btn-open-explorer': 'folder',
+      'btn-copy-directory': 'copy', 'btn-pin-directory': 'pin', 'btn-show-browser': 'forward',
+      'btn-show-projects': 'panel', 'btn-files-toggle': 'list', 'btn-preview-toggle': 'preview',
+      'btn-showcase-toggle': 'panel', 'btn-project-home': 'home', 'btn-project-content': 'folder',
+    })) $(id).prepend(icon(glyph));
+    homeTab.onclick = () => { if (nav.state.target?.root_id !== 'homepage') nav.go(nav.rootTarget('homepage')); };
+    contentTab.onclick = () => {
+      const destination = nav.contentTarget();
+      if (destination && nav.state.target?.root_id === 'homepage') nav.go(destination);
+    };
+    $('project-mode').onkeydown = (event) => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      const tabs = [homeTab, contentTab].filter((tab) => !tab.disabled && !tab.classList.contains('hidden'));
+      if (tabs.length < 2) return;
+      event.preventDefault();
+      (event.key === 'Home' ? homeTab : event.key === 'End' ? contentTab
+        : event.target === homeTab ? contentTab : homeTab).focus();
+    };
+    showcaseToggle.onclick = () => setShowcaseCollapsed(!layout.classList.contains('showcase-collapsed'));
+    filesToggle.onclick = () => setFilesCollapsed(!layout.classList.contains('files-collapsed'));
+    const narrowPreview = matchMedia('(max-width: 760px)');
+    preview.subscribe((value) => {
+      if (value && narrowPreview.matches && session.preferences.preview_visible !== false &&
+          !document.body.classList.contains('workspace-focus')) setFilesCollapsed(true);
+    });
+    $('btn-show-browser').onclick = () => { setMobileView('browser'); $('btn-show-projects').focus(); };
+    $('btn-show-projects').onclick = () => { setMobileView('showcase'); $('btn-show-browser').focus(); };
+    session.subscribe((prefs) => {
+      if (prefs.preview_visible === false) setFilesCollapsed(false);
+      filesToggle.disabled = prefs.preview_visible === false || !!nav.state.error;
+    });
     $('dir-filter').oninput = (event) => nav.filter(event.target.value);
     $('btn-home').onclick = () => nav.go(null);
     $('btn-back').onclick = () => history.back();
@@ -392,18 +498,18 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
     const handle = $('sidebar-resizer');
     const root = document.documentElement;
     const MIN = 200, MAX = 640, STEP = 16;
-    const clamp = (px) => Math.max(MIN, Math.min(Math.min(MAX, window.innerWidth - 280), px));
+    const clamp = (px) => Math.max(MIN, Math.min(MAX, layout.clientWidth - 288, px));
     const width = () => $('sidebar').getBoundingClientRect().width;
     const apply = (px) => {
       const v = px == null ? null : `${Math.round(px)}px`;
       if (v == null) root.style.removeProperty('--sidebar-w');
       else root.style.setProperty('--sidebar-w', v);
-      const sb = $('sidebar');
-      if (v == null) sb.style.removeProperty('width');
-      else sb.style.width = v;
       handle.setAttribute('aria-valuenow', String(Math.round(width())));
     };
-    let dragging = false, moved = false, startX = 0;
+    let dragging = false, moved = false, startX = 0, startWidth = 0;
+    new ResizeObserver(() => {
+      if (width()) handle.setAttribute('aria-valuenow', String(Math.round(width())));
+    }).observe($('sidebar'));
     let lastWidth = session.preferences.sidebar_width ?? null;
     apply(lastWidth);
     // 仅 sidebar_width 真正变化时才写入，避免切换项目保存 last_location 等触发重置
@@ -416,7 +522,7 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
       if (!dragging) return;
       e.preventDefault();
       if (Math.abs(e.clientX - startX) > 3) moved = true;
-      apply(clamp(e.clientX));
+      apply(clamp(startWidth + e.clientX - startX));
     }
     function onUp(e) {
       if (!dragging) return;
@@ -426,7 +532,7 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
       window.removeEventListener('pointercancel', onUp);
       delete handle.dataset.dragging;
       document.body.classList.remove('sidebar-resizing');
-      if (moved) { lastWidth = Math.round(width()); session.save({ sidebar_width: lastWidth }); }
+      if (moved) saveWidth(Math.round(width()));
     }
 
     handle.addEventListener('pointerdown', (event) => {
@@ -435,30 +541,37 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
       dragging = true;
       moved = false;
       startX = event.clientX;
+      startWidth = width();
       handle.dataset.dragging = '';
       document.body.classList.add('sidebar-resizing');
       window.addEventListener('pointermove', onMove, { passive: false });
       window.addEventListener('pointerup', onUp);
       window.addEventListener('pointercancel', onUp);
     });
+    function saveWidth(value) {
+      session.save({ sidebar_width: value }).catch((error) => {
+        apply(session.preferences.sidebar_width ?? null);
+        flash(`项目陈列宽度未保存：${error.message}`);
+      });
+    }
     handle.addEventListener('dblclick', () => {
       if (moved) return;
       apply(null);
-      session.save({ sidebar_width: null });
+      saveWidth(null);
     });
     handle.addEventListener('keydown', (event) => {
       const step = event.key === 'ArrowLeft' ? -STEP : event.key === 'ArrowRight' ? STEP : 0;
       if (!step) return;
       event.preventDefault();
       apply(clamp(width() + step));
-      session.save({ sidebar_width: Math.round(width()) });
+      saveWidth(Math.round(width()));
     });
   }
   function wirePreviewResizer() {
     const handle = $('preview-resizer');
     const root = document.documentElement;
     const MIN = 240, MAX = 800, STEP = 16;
-    const clamp = (px) => Math.max(MIN, Math.min(Math.min(MAX, window.innerWidth - 320), px));
+    const clamp = (px) => Math.round(Math.max(MIN, Math.min(MAX, $('main-split').clientWidth - 156, px)));
     const width = () => $('preview-pane').getBoundingClientRect().width;
     const apply = (px) => {
       if (px == null) root.style.removeProperty('--preview-w');
@@ -467,7 +580,7 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
       handle.setAttribute('aria-valuenow', String(value));
       handle.setAttribute('aria-valuetext', `${value} 像素`);
     };
-    let dragging = false, moved = false, startX = 0;
+    let dragging = false, moved = false, startX = 0, startWidth = 0;
     apply(session.preferences.preview_width ?? null);
     let pendingSaves = 0;
     session.subscribe?.((prefs) => { if (!dragging && !pendingSaves) apply(prefs.preview_width ?? null); });
@@ -488,6 +601,7 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
       dragging = true;
       moved = false;
       startX = event.clientX;
+      startWidth = width();
       handle.setPointerCapture(event.pointerId);
       handle.dataset.dragging = '';
       document.body.classList.add('sidebar-resizing');
@@ -497,7 +611,7 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
       if (!dragging) return;
       if (Math.abs(event.clientX - startX) > 3) moved = true;
       // 从右缘量宽：拖向左侧加宽预览。
-      apply(clamp(window.innerWidth - event.clientX));
+      apply(clamp(startWidth + startX - event.clientX));
     });
     const end = (event) => {
       if (!dragging) return;
@@ -505,7 +619,7 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
       handle.releasePointerCapture?.(event.pointerId);
       delete handle.dataset.dragging;
       document.body.classList.remove('sidebar-resizing');
-      if (moved) saveWidth(Math.round(width()));
+      if (moved) saveWidth(clamp(width()));
     };
     handle.addEventListener('pointerup', end);
     handle.addEventListener('pointercancel', end);
@@ -520,7 +634,7 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
       if (!step) return;
       event.preventDefault();
       apply(clamp(width() + step));
-      saveWidth(Math.round(width()));
+      saveWidth(clamp(width()));
     });
   }
 

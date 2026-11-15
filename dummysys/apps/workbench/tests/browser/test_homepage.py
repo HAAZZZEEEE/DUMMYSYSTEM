@@ -120,15 +120,30 @@ catch { document.querySelector('#isolation').textContent = '隔离成功'; }
     def test_tabs_preserve_directory_and_history_and_reload(self):
         self.prepare()
         self.select_home()
-        self.page.get_by_role('tab', name='根目录：文档', exact=True).click()
+        expect(self.page.locator('#root-tabs')).to_be_hidden()
+        self.page.get_by_role('tab', name='项目内容', exact=True).click()
         self.ready()
         self.enter(SPECIAL)
         self.page.get_by_role('tab', name='项目首页', exact=True).click()
+        self.home_ready()
+        collapse = self.page.locator('#btn-showcase-toggle')
+        collapse.click()
+        expect(collapse).to_have_attribute('aria-expanded', 'false')
+        expect(self.page.locator('#sidebar')).to_be_hidden()
+        collapse.click()
+        expect(self.page.locator('#sidebar')).to_be_visible()
+        collapse.click()
+        self.page.get_by_role('tab', name='项目内容', exact=True).click()
+        self.ready(SPECIAL)
+        expect(self.page.locator('#sidebar')).to_be_visible()
+        self.page.go_back()
         self.home_ready()
         self.page.go_back()
         self.ready(SPECIAL)
         self.page.go_forward()
         self.home_ready()
+        self.page.get_by_role('tab', name='项目内容', exact=True).click()
+        self.ready(SPECIAL)
         self.page.get_by_role('tab', name='根目录：项目资源', exact=True).click()
         expect(self.page.get_by_test_id('homepage-frame')).to_have_count(0)
         # paired 位置延续；示例中资源侧不存在这个目录，仍按原契约显示错误。
@@ -139,7 +154,7 @@ catch { document.querySelector('#isolation').textContent = '隔离成功'; }
         self.home_ready()
         self.page.reload()
         self.home_ready()
-        self.page.get_by_role('tab', name='根目录：文档', exact=True).click()
+        self.page.get_by_role('tab', name='项目内容', exact=True).click()
         self.ready()
 
     def test_invalid_home_keeps_tabs_and_refresh_recovers(self):
@@ -148,7 +163,7 @@ catch { document.querySelector('#isolation').textContent = '隔离成功'; }
         self.page.locator(f'[data-testid="project-link"][data-id="{A}"]').click()
         expect(self.page.locator('#error-view')).to_be_visible()
         expect(self.page.locator('#error-message')).to_contain_text('workbench.json')
-        self.page.get_by_role('tab', name='根目录：文档', exact=True).click()
+        self.page.get_by_role('tab', name='项目内容', exact=True).click()
         self.ready()
         write_json(self.resources / 'workbench.json', {'schema_version': 1,
             'homepage': {'root_id': 'resources', 'path': '页面 包#&/首页.html'}})
@@ -173,7 +188,7 @@ catch { document.querySelector('#isolation').textContent = '隔离成功'; }
     def test_start_prefers_home_but_explicit_directory_url_is_preserved(self):
         self.prepare()
         self.select_home()
-        self.page.get_by_role('tab', name='根目录：文档', exact=True).click()
+        self.page.get_by_role('tab', name='项目内容', exact=True).click()
         self.ready()
         self.enter(SPECIAL)
         self.page.wait_for_function("""async () => {

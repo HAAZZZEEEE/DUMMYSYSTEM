@@ -29,6 +29,7 @@ export function mountNavSort(session, flash) {
   row.className = 'sidebar-controls';
   const label = document.createElement('label');
   label.textContent = '排序';
+  label.className = 'sr-only';
   label.htmlFor = 'nav-sort';
   const select = document.createElement('select');
   select.id = 'nav-sort';

@@ -1,6 +1,7 @@
 import { commandPressed, primaryKey, isMac } from './platform-ui.js';
 // 工作区效率控件；导航数据仍由 navigation/directory 拥有。
 import { isEditing } from './interaction.js';
+import { icon } from './icons.js';
 
 const $ = (id) => document.getElementById(id);
 function button(id, text, action) {
@@ -60,26 +61,31 @@ export function createWorkspaceTools(nav, session, flash) {
   const toggleFocus = () => {
     focus = !focus;
     document.body.classList.toggle('workspace-focus', focus);
-    focusButton.textContent = focus ? '退出专注' : '专注';
+    if (focus) $('workspace-layout').dataset.mobileView = 'browser';
+    focusButton.setAttribute('aria-label', focus ? '退出专注' : '专注');
     focusButton.setAttribute('aria-pressed', String(focus));
     focusButton.focus();
   };
   const focusButton = button('btn-focus', '专注', toggleFocus);
   focusButton.title = `专注模式：收起导航与预览（${primaryKey}+Shift+L）`;
   focusButton.setAttribute('aria-pressed', 'false');
+  focusButton.setAttribute('aria-label', '专注');
+  focusButton.className = 'icon-btn';
+  focusButton.replaceChildren(icon('focus'));
   const helpButton = button('btn-shortcuts', '?', () => {
     if (document.querySelector('dialog[open]')) return;
     help.showModal(); helpClose.focus();
   });
   helpButton.setAttribute('aria-label', '键盘快捷键');
   helpButton.title = '键盘快捷键（?）';
-  document.querySelector('.workspace-actions').prepend(focusButton, helpButton);
+  helpButton.className = 'icon-btn';
+  document.querySelector('.app-actions').prepend(helpButton);
+  $('btn-showcase-toggle').before(focusButton);
   const help = document.createElement('dialog');
   help.id = 'shortcuts-dialog'; help.className = 'shortcuts-dialog';
-  help.setAttribute('aria-labelledby', 'shortcuts-title');
-  const title = document.createElement('h2'); title.id = 'shortcuts-title'; title.textContent = '让操作跟上思路';
-  const hint = document.createElement('p'); hint.textContent = '把手留在键盘上，也能轻松浏览工作区。';
-  help.append(title, hint);
+  help.setAttribute('aria-labelledby', 'keyboard-shortcuts-title');
+  const title = document.createElement('h2'); title.id = 'keyboard-shortcuts-title'; title.textContent = '键盘快捷键';
+  help.append(title);
   const list = document.createElement('dl');
   for (const [keys, label] of [[`${primaryKey} + K`, '快速跳转'], [`${primaryKey} + Shift + F`, '全局搜索'],
     ['/', '筛选当前目录'], [`${primaryKey} + Shift + L`, '切换专注模式'], ['↑ / ↓、Enter', '选择并打开条目'],

@@ -2,46 +2,34 @@
 
 ## Authority and status
 
-This is the canonical technical design specification. Its initial values below
-describe the existing implementation; they are **inherited baseline**, not a
-new user approval of every aesthetic choice. No redesign was selected while
-establishing this workflow.
-
-Preserve this baseline for ordinary additions and focused fixes. A user-chosen
-new direction updates only the affected rules. Record the decision and reason
-with the relevant change, then update this specification.
-Unchosen proposals never become current design rules.
+This is the canonical technical design specification. Preserve the implemented
+layout and interaction rules for ordinary additions and focused fixes.
+Record a confirmed decision and its rationale with the relevant change.
 
 ## Product surfaces
 
-Workbench is an operational tool and reading environment. Project navigation
-serves the active workspace; primary content is the project/task information,
-directory or document being inspected. Controls communicate current location
-and operation scope. Prefer task clarity over decorative differentiation.
+Workbench prioritizes finding project material and revisiting work. Search and
+quick jump are available above the project display and browser. Controls
+communicate current location and operation scope.
 
-## Accepted direction: floating panels with glass navigation
+## Layout: floating panels with glass navigation
 
-This direction is selected for the redesign and has been explored in isolated
-prototypes. **Production implementation is pending.** The inherited sections
-below continue to describe the current application; this specification change
-does not deploy or replace its interface.
-
-- Keep two adjustable areas: project display and project browser. Project,
-  Task and Run remain a hierarchy, with their owning context always available.
-  A Task is a complete group containing its indented Runs. Do not present
-  Project, Task and Run as equally elevated cards. Do not prescribe a fixed
-  width ratio.
+- Keep two adjustable areas: project display and project browser. The project
+  list and current project's Task/Run records have separate scroll areas.
+  Task groups contain their Runs and carry their status and date as metadata.
 - The project browser owns homepage/content switching. A project supplies its
-  own customizable homepage, which can expand by hiding the project display.
-  Content mode contains file navigation and preview, with visible document,
-  resource and repository tabs rather than a location dropdown.
+  own customizable homepage. The homepage can expand by hiding the project
+  display. Returning to content restores the project's latest content location
+  in the session. Content mode has visible root tabs and a file list beside
+  an adjustable preview. The repository tab retains the registered-repository
+  selector.
 - Keep task and reading surfaces opaque. Use translucent glass, backdrop blur,
   restrained background halos and bright edges on navigation and outer panels.
   Main panels retain broad neutral shadows; internal rows and small controls
   use much lighter elevation. Provide opaque fallbacks when transparency is
   reduced or unsupported. Keep the visible keyboard focus ring.
 - Selected projects use lightly raised surfaces. Task groups use a neutral
-  boundary; selected Runs use a shallow tinted surface within their parent.
+  boundary. Selected Runs use a shallow tinted surface within their parent.
   Keep the corresponding project/task/run context visible in the browser.
   Use consistent line icons for project identity instead of initial-letter tiles.
 - Prioritize readable names and secondary metadata. Recognize canonical Task
@@ -54,15 +42,13 @@ does not deploy or replace its interface.
   hierarchy is shared across platforms; native platform behavior still needs
   platform-specific verification.
 
-Exact spacing, shadow values and animation timings remain subject to focused
-refinement and implementation verification. Personal proposals, feedback history
-and prototype files remain outside the source repository.
+The workspace name is stored in Workbench preferences. Theme, navigation
+sorting, directory density and both Task view styles are also configurable.
 
-## Inherited visual baseline
+## Appearance tokens
 
-Sources: workbench/static/styles.css, overview.css, theme.js and the rendered
-target. CSS has later overrides and runtime theme/preferences; inspect computed
-styles before treating an early declaration as the effective value.
+Sources: workbench/static/workspace.css, styles.css, overview.css and theme.js.
+Check computed styles in the rendered application for theme-dependent values.
 
 | Role | Current baseline |
 |---|---|
@@ -84,23 +70,15 @@ Microsoft YaHei, system-ui, -apple-system, sans-serif. Body baseline is 15px;
 compact controls and metadata use smaller sizes, with hierarchy also conveyed
 by weight and semantic text color. Keep Chinese fallbacks and long-text reading.
 
-Existing tokens include radius 8px/11px/pill and spacing 8px/12px/17px; a later
-desktop rule sets --sp-lg to 22px, --control-h to 32px, --sidebar-w to 22rem,
---nav-h to 52px and --tab-h to 39px. Some components have their own measured
-geometry. Directory rows are 44px in normal density and 32px in compact density.
-These are recorded facts, not a mandate to retain irregular values forever.
+Use the shell's surface, edge and shadow tokens for the two panels. Use the
+shared control tokens for inputs, buttons and dialogs. Directory rows have
+44px and 32px minimums in comfortable and compact density and grow for long
+names. Narrow lists display type and modification time under the file name.
 
-Surfaces currently combine solid reading areas, lightly translucent navigation,
-borders and layered floating menus. Existing gradients, shadows and rounded
-corners should be judged in context; installing a detector does not authorize
-removing them or changing the palette.
+## Navigation and actions
 
-## Layout and interaction baseline
-
-- Project navigation at left; workspace header, root tabs and location context
-  above the main area; directory list and optional preview share the content.
-- Sidebar and preview have adjustable widths. Preserve keyboard-operable
-  separators, preview toggling, focus mode and selection persistence when touched.
+- Preserve keyboard-operable separators, file-list and preview toggling, focus
+  mode and selection persistence when changing the layout.
 - Main actions belong to their current project/location. Do not visually imply
   a broader or narrower scope than the actual API operation.
 - Search and quick jump retain keyboard navigation, clear selected results,
@@ -112,10 +90,10 @@ removing them or changing the palette.
 
 ## Adaptation, themes and motion
 
-Preserve light, dark, system theme, configurable accent and density settings.
-At narrow widths the current implementation wraps controls and hides the
-preview below 760px. Inspect actual overflow at the target sizes; this is not
-evidence of full mobile support.
+Preserve light, dark and system themes and the configurable accent. Narrow
+windows can switch between project display and browser. At 760px or less,
+opening a preview gives it the browser width, and the file navigation control
+returns to the directory list.
 
 Use visible keyboard focus and readable contrast. Match existing behavior
 first, then fix demonstrated deficiencies within scope. Reduced-motion settings
