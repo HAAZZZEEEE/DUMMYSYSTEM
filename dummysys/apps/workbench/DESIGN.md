@@ -22,7 +22,7 @@ communicate current location and operation scope.
   display. Returning to content restores the project's latest content location
   in the session. Content mode has visible root tabs and a file list beside
   an adjustable preview. The repository tab retains the registered-repository
-  selector.
+  selector. Root tabs share a shallow track with a pill-shaped selection.
 - Keep task and reading surfaces opaque. Use translucent glass, backdrop blur,
   restrained background halos and bright edges on navigation and outer panels.
   Main panels retain broad neutral shadows; internal rows and small controls
@@ -79,9 +79,14 @@ shared control tokens for inputs, buttons and dialogs. Directory rows have
 44px and 32px minimums in comfortable and compact density and grow for long
 names. The directory table defaults to Name. Its header settings expose Type,
 Modified, Size and File Count with a saved display order. Name stays first.
+Clicking any visible column heading sorts the entire directory before pagination.
+Clicking that heading again reverses the direction, with directories kept first.
 File Count covers direct regular files of a listed directory. Size reports
 individual file sizes. The filename filter is a right-aligned pill in the same
 toolbar as directory sorting and type filtering, with wrapping in tight panes.
+Compact toolbar selectors use low-contrast pills, and adjacent primary and
+secondary actions use the same height. The sticky table header blends into
+the file list without a drawn bottom edge.
 
 ## Navigation and actions
 

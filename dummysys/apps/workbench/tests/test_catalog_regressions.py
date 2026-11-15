@@ -56,6 +56,22 @@ class CatalogRegressionTest(unittest.TestCase):
         with self.assertRaises(StaleCursor):
             self.catalog.list_directory(self.target, cursor=second["next_cursor"])
 
+    def test_sort_by_file_count_uses_all_directories_before_paging(self):
+        (self.docs / "a-empty").mkdir()
+        (self.docs / "b-single" / "nested").mkdir(parents=True)
+        (self.docs / "c-two").mkdir()
+        (self.docs / "b-single" / "one.txt").touch()
+        (self.docs / "b-single" / "nested" / "ignored.txt").touch()
+        for name in ("one.txt", "two.txt"):
+            (self.docs / "c-two" / name).touch()
+        first = self.catalog.list_directory(self.target, sort="file_count_desc", limit=1)
+        second = self.catalog.list_directory(
+            self.target, sort="file_count_desc", limit=1, cursor=first["next_cursor"])
+        ascending = self.catalog.list_directory(self.target, sort="file_count", limit=1)
+        self.assertEqual((first["entries"][0]["name"], first["entries"][0]["file_count"]), ("c-two", 2))
+        self.assertEqual((second["entries"][0]["name"], second["entries"][0]["file_count"]), ("b-single", 1))
+        self.assertEqual(ascending["entries"][0]["file_count"], 0)
+
     def bind_repo(self, paths=None, legacy=False):
         self.repo = self.base / "repo"
         for name in ("apps/workbench", "apps/private", "packages/core", "private"):

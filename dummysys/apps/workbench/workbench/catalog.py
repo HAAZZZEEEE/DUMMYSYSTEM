@@ -743,7 +743,10 @@ class Catalog:
     def list_directory(self, target: dict, name_filter: str | None = None,
                        cursor: dict | None = None, limit: int = PAGE_SIZE,
                        sort: str = 'name', kind: str = 'all', include_file_counts: bool = False) -> dict:
-        if sort not in ('name', 'name_desc', 'modified', 'modified_asc', 'type'):
+        value_fields = {'modified': 'modified_at', 'modified_asc': 'modified_at',
+                        'size': 'size', 'size_desc': 'size',
+                        'file_count': 'file_count', 'file_count_desc': 'file_count'}
+        if not isinstance(sort, str) or (sort not in ('name', 'name_desc', 'type', 'type_desc') and sort not in value_fields):
             raise InvalidTarget('不支持的目录排序方式')
         if kind not in ('all', 'dir', 'file'):
             raise InvalidTarget('目录类型必须是 all、dir 或 file')
@@ -828,15 +831,21 @@ class Catalog:
         version = hashlib.sha256(json.dumps([resolved, root, before, fingerprints, entries], sort_keys=True).encode()).hexdigest()
         entries = [e for e in entries if not needle or needle in e["name"].casefold()]
         entries = [e for e in entries if kind == 'all' or e['kind'] == kind]
+        field = value_fields.get(sort)
+        if field == 'file_count':
+            entries = [{**e, 'file_count': self._count_direct_files(e)} for e in entries]
+            # Child counts participate in the version when they affect page order.
+            counts = [e['file_count'] for e in entries]
+            version = hashlib.sha256(json.dumps([version, counts]).encode()).hexdigest()
         # 在分页前排序，后续页仍遵守同一全目录顺序；目录始终优先。
         if sort == 'name_desc':
             entries.sort(key=lambda e: (natural_key(e['name']), e['name']), reverse=True)
-        elif sort == 'modified':
-            entries.sort(key=lambda e: e['modified_at'] or '', reverse=True)
-        elif sort == 'modified_asc':
-            entries.sort(key=lambda e: (not bool(e['modified_at']), e['modified_at'] or ''))
-        elif sort == 'type':
-            entries.sort(key=lambda e: Path(e['name']).suffix.casefold())
+        elif sort in ('type', 'type_desc'):
+            entries.sort(key=lambda e: Path(e['name']).suffix.casefold(), reverse=sort == 'type_desc')
+        elif field:
+            ranked = [e for e in entries if e[field] is not None]
+            ranked.sort(key=lambda e: e[field], reverse=sort in ('modified', 'size_desc', 'file_count_desc'))
+            entries = ranked + [e for e in entries if e[field] is None]
         entries.sort(key=lambda e: e['kind'] != 'dir')
         summary = {'total': len(entries), 'directories': sum(e['kind'] == 'dir' for e in entries),
                    'files': sum(e['kind'] == 'file' for e in entries),
@@ -847,7 +856,7 @@ class Catalog:
         if start > len(entries):
             raise StaleCursor("游标位置超出目录内容，请刷新后重试")
         page = entries[start:start + limit]
-        if include_file_counts:
+        if include_file_counts and field != 'file_count':
             page = [{**entry, 'file_count': self._count_direct_files(entry)} for entry in page]
         next_cursor = None
         if start + len(page) < len(entries):

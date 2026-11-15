@@ -24,14 +24,22 @@ export function formatBytes(value) {
   return `${value} B`;
 }
 
+export const directorySorts = {
+  name: [['name', '名称正序'], ['name_desc', '名称倒序']],
+  type: [['type', '类型 ↑'], ['type_desc', '类型 ↓']],
+  modified: [['modified_asc', '最早修改'], ['modified', '最近修改']],
+  size: [['size', '大小 ↑'], ['size_desc', '大小 ↓']],
+  file_count: [['file_count', '文件数 ↑'], ['file_count_desc', '文件数 ↓']],
+};
+
 export function createWorkspaceTools(nav, session, flash) {
   const tools = document.createElement('div');
   tools.className = 'directory-tools'; tools.id = 'directory-tools';
   tools.setAttribute('role', 'group'); tools.setAttribute('aria-label', '目录显示选项');
   const kind = select('directory-kind', '筛选条目类型', [['all', '全部类型'], ['dir', '仅文件夹'], ['file', '仅文件']],
     value => nav.options({ kind: value }));
-  const sort = select('directory-sort', '目录排序', [['name', '名称 A → Z'], ['name_desc', '名称 Z → A'],
-    ['modified', '最近修改优先'], ['type', '文件类型']], value => nav.options({ sort: value }));
+  const sort = select('directory-sort', '目录排序', Object.values(directorySorts).flat(),
+    value => nav.options({ sort: value }));
   const reset = button('directory-reset', '清除筛选', () => {
     nav.options({ kind: 'all', filter: '' }); $('dir-filter').focus();
   });

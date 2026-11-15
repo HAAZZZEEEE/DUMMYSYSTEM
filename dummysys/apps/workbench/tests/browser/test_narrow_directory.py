@@ -1,8 +1,29 @@
 """真实分隔条缩窄文件列表时，表头和文件名称必须保留可用空间。"""
-from browser_fixture import A, BrowserCase, expect
+from browser_fixture import A, MANY, BrowserCase, expect
 
 
 class NarrowDirectoryTests(BrowserCase):
+    def test_header_sort_applies_before_paging_and_updates_direction(self):
+        (self.docs[A] / MANY / '终点大文件.txt').write_bytes(b'x' * 200)
+        self.application.save_preferences({'directory_columns': ['size']})
+        self.page.reload()
+        self.project()
+        self.enter(MANY)
+        name = self.page.get_by_role('button', name='按名称排序', exact=True)
+        size = self.page.get_by_role('button', name='按大小排序', exact=True)
+        header = self.page.locator('th[data-column="size"]')
+        rows = self.page.get_by_test_id('directory-entry')
+        name.press('Enter')
+        expect(rows.first).to_contain_text('终点大文件.txt')
+        size.click()
+        expect(header).to_have_attribute('aria-sort', 'ascending')
+        expect(rows.first).to_contain_text('000')
+        size.click()
+        expect(header).to_have_attribute('aria-sort', 'descending')
+        expect(rows.first).to_contain_text('终点大文件.txt')
+        expect(self.page.get_by_label('目录排序', exact=True)).to_have_value('size_desc')
+        expect(rows).to_have_count(200)
+
     def test_column_choices_and_order_survive_reload(self):
         folder = self.docs[A] / '统计示例'
         (folder / '子目录').mkdir(parents=True)

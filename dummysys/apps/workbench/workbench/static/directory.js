@@ -2,7 +2,7 @@ import { api, mark, target } from './api.js';
 import { metadata } from './actions.js';
 import { fileIcon, icon } from './icons.js';
 import { recordDirectoryLabel } from './record-label.js';
-import { formatBytes } from './workspace-tools.js';
+import { directorySorts, formatBytes } from './workspace-tools.js';
 
 const columns = {
   type: { label: '类型', value: (entry, info) =>
@@ -19,6 +19,18 @@ export function createDirectory(nav, session, actions, flash, preview) {
   let visibleColumns = [];
   let rendered = null;
   let rowGeneration = -1;
+  function sortHeader(cell, label) {
+    const [[ascending], [descending]] = directorySorts[cell.dataset.column];
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'directory-sort-header';
+    button.textContent = label;
+    button.setAttribute('aria-label', `按${label}排序`);
+    button.title = cell.dataset.column === 'type' ? '按扩展名排序' : `按${label}排序`;
+    button.onclick = () => nav.options({ sort: nav.state.sort === ascending ? descending : ascending });
+    cell.replaceChildren(button);
+  }
+  sortHeader(header.querySelector('[data-column="name"]'), '名称');
   function syncPreviewSelection(value) {
     const key = value && JSON.stringify(value);
     for (const row of body.querySelectorAll('tr[data-target]')) {
@@ -31,11 +43,11 @@ export function createDirectory(nav, session, actions, flash, preview) {
     if ((!state.target || state.target.root_id === 'homepage' || state.error) && columnMenu.matches(':popover-open')) {
       columnMenu.hidePopover();
     }
-    const sortColumn = { modified: 'modified', modified_asc: 'modified', type: 'type' }[state.sort] || 'name';
     for (const cell of header.querySelectorAll('[data-column]')) {
-      if (cell.dataset.column === sortColumn) {
-        cell.setAttribute('aria-sort', ['modified', 'name_desc'].includes(state.sort) ? 'descending' : 'ascending');
-      } else cell.removeAttribute('aria-sort');
+      const [[ascending], [descending]] = directorySorts[cell.dataset.column];
+      if (state.sort === ascending) cell.setAttribute('aria-sort', 'ascending');
+      else if (state.sort === descending) cell.setAttribute('aria-sort', 'descending');
+      else cell.removeAttribute('aria-sort');
     }
     if (!layoutChanged && rendered === state.entries && rowGeneration === state.generation) {
       for (const row of body.querySelectorAll('tr[data-target]')) row.setAttribute('aria-disabled', String(state.loading));
@@ -135,7 +147,7 @@ export function createDirectory(nav, session, actions, flash, preview) {
       cell.scope = 'col';
       cell.className = 'directory-detail';
       cell.dataset.column = key;
-      cell.textContent = columns[key].label;
+      sortHeader(cell, columns[key].label);
       if (columns[key].hint) cell.title = columns[key].hint;
       header.lastElementChild.before(cell);
     }
@@ -206,7 +218,6 @@ function mountColumnSettings(session, flash, onChange) {
       check.checked = position >= 0;
       up.disabled = position <= 0;
       down.disabled = position < 0 || position === selected.length - 1;
-      row.classList.toggle('column-enabled', check.checked);
       options.append(row);
     }
     if (focus) {
