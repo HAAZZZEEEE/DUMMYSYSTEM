@@ -275,7 +275,8 @@ def create_app(application: Application, instance: dict, token_provider=None,
         data = body()
         return result(application.list_directory(data.get('target'), data.get('filter'),
                                                 data.get('cursor'), data.get('limit'),
-                                                data.get('sort', 'name'), data.get('kind', 'all')))
+                                                data.get('sort', 'name'), data.get('kind', 'all'),
+                                                data.get('include_file_counts', False)))
 
     @app.post('/api/v1/actions')
     def actions():

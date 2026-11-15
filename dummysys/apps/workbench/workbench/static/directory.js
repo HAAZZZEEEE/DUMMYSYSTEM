@@ -1,10 +1,22 @@
 import { api, mark, target } from './api.js';
 import { metadata } from './actions.js';
-import { fileIcon } from './icons.js';
+import { fileIcon, icon } from './icons.js';
 import { recordDirectoryLabel } from './record-label.js';
+import { formatBytes } from './workspace-tools.js';
+
+const columns = {
+  type: { label: '类型', value: (entry, info) =>
+    info.available === false ? '不可用' : info.navigation_only ? '仅浏览目录' : entry.kind === 'dir' ? '文件夹' : '文件' },
+  modified: { label: '修改时间', value: entry => entry.modified_at?.replace('T', ' ').slice(0, 16) },
+  size: { label: '大小', hint: '文件大小', value: entry => entry.size == null ? null : formatBytes(entry.size) },
+  file_count: { label: '文件数', hint: '目录内直属文件的数量', value: entry => entry.file_count },
+};
 
 export function createDirectory(nav, session, actions, flash, preview) {
   const body = document.getElementById('entries-body');
+  const header = body.closest('table').tHead.rows[0];
+  const columnMenu = document.getElementById('directory-columns');
+  let visibleColumns = [];
   let rendered = null;
   let rowGeneration = -1;
   function syncPreviewSelection(value) {
@@ -15,8 +27,17 @@ export function createDirectory(nav, session, actions, flash, preview) {
     }
   }
   preview.subscribe(syncPreviewSelection);
-  function render(state) {
-    if (rendered === state.entries && rowGeneration === state.generation) {
+  function render(state, layoutChanged = false) {
+    if ((!state.target || state.target.root_id === 'homepage' || state.error) && columnMenu.matches(':popover-open')) {
+      columnMenu.hidePopover();
+    }
+    const sortColumn = { modified: 'modified', modified_asc: 'modified', type: 'type' }[state.sort] || 'name';
+    for (const cell of header.querySelectorAll('[data-column]')) {
+      if (cell.dataset.column === sortColumn) {
+        cell.setAttribute('aria-sort', ['modified', 'name_desc'].includes(state.sort) ? 'descending' : 'ascending');
+      } else cell.removeAttribute('aria-sort');
+    }
+    if (!layoutChanged && rendered === state.entries && rowGeneration === state.generation) {
       for (const row of body.querySelectorAll('tr[data-target]')) row.setAttribute('aria-disabled', String(state.loading));
       for (const button of body.querySelectorAll('button')) button.disabled = state.loading;
       return;
@@ -71,17 +92,16 @@ export function createDirectory(nav, session, actions, flash, preview) {
       }
       cell.append(icon, nameDetails);
       name.append(cell);
-      const type = document.createElement('td');
-      type.className = 'type';
-      type.textContent = info.available === false ? '不可用' : info.navigation_only ? '仅浏览目录' : entry.kind === 'dir' ? '文件夹' : '文件';
-      const modified = document.createElement('td');
-      modified.className = 'mod';
-      modified.textContent = (entry.modified_at || '').replace('T', ' ').slice(0, 16);
-      const compactInfo = document.createElement('span');
-      compactInfo.className = 'entry-compact-meta';
-      compactInfo.textContent = [type.textContent, modified.textContent].filter(Boolean).join(' · ');
-      nameDetails.append(compactInfo);
+      row.append(name);
+      for (const key of visibleColumns) {
+        const detail = document.createElement('td');
+        detail.className = 'directory-detail';
+        detail.dataset.column = key;
+        detail.textContent = columns[key].value(entry, info) ?? '—';
+        row.append(detail);
+      }
       const menu = document.createElement('td');
+      menu.className = 'col-act';
       const menuButton = actions.menuButton(snapshot, info, entry.name, entry.kind === 'dir'
         ? [{ id: 'browse-target', label: '进入目录', onClick: () => nav.go(snapshot),
             disabled: info.available === false, reason: info.reason }, { separator: true }]
@@ -90,7 +110,7 @@ export function createDirectory(nav, session, actions, flash, preview) {
               disabled: info.available === false, reason: info.reason }, { separator: true }]
           : []);
       menu.append(menuButton);
-      row.append(name, type, modified, menu);
+      row.append(menu);
       actions.bindContextMenu(row, menuButton);
       body.append(row);
     }
@@ -98,7 +118,7 @@ export function createDirectory(nav, session, actions, flash, preview) {
     if (!state.loading && !state.error && state.target && !state.entries.length) {
       const row = document.createElement('tr');
       const cell = document.createElement('td');
-      cell.colSpan = 4;
+      cell.colSpan = visibleColumns.length + 2;
       cell.className = 'empty-cell';
       cell.textContent = state.filter ? '没有匹配的文件或目录' : '此目录为空';
       row.append(cell);
@@ -106,14 +126,32 @@ export function createDirectory(nav, session, actions, flash, preview) {
     }
   }
   nav.subscribe(render);
+  mountColumnSettings(session, flash, visible => {
+    const needCounts = visible.includes('file_count') && !visibleColumns.includes('file_count');
+    visibleColumns = visible;
+    header.querySelectorAll('.directory-detail').forEach(cell => cell.remove());
+    for (const key of visibleColumns) {
+      const cell = document.createElement('th');
+      cell.scope = 'col';
+      cell.className = 'directory-detail';
+      cell.dataset.column = key;
+      cell.textContent = columns[key].label;
+      if (columns[key].hint) cell.title = columns[key].hint;
+      header.lastElementChild.before(cell);
+    }
+    render(nav.state, true);
+    if (needCounts && nav.state.target?.root_id && nav.state.target.root_id !== 'homepage' && !nav.state.error) {
+      void nav.reload();
+    }
+  });
   async function load(ctx, append = false) {
     const state = nav.state;
+    const request = { target: ctx.target, filter: state.filter, sort: state.sort, kind: state.kind, limit: 200 };
+    if (visibleColumns.includes('file_count')) request.include_file_counts = true;
     try {
       let result;
       try {
-        result = await api('list', { body: { target: ctx.target, filter: state.filter,
-          sort: state.sort, kind: state.kind,
-          limit: 200, ...(append ? { cursor: state.cursor } : {}) }, signal: ctx.signal });
+        result = await api('list', { body: { ...request, ...(append ? { cursor: state.cursor } : {}) }, signal: ctx.signal });
       } catch (error) {
         if (!ctx.valid()) return;
         if (error.code !== 'STALE_CURSOR') throw error;
@@ -122,8 +160,7 @@ export function createDirectory(nav, session, actions, flash, preview) {
         state.cursor = null;
         nav.emit();
         flash('目录分页已失效，已清空旧页并重新加载第一页。');
-        result = await api('list', { body: { target: ctx.target, filter: state.filter,
-          sort: state.sort, kind: state.kind, limit: 200 }, signal: ctx.signal });
+        result = await api('list', { body: request, signal: ctx.signal });
       }
       if (!ctx.valid()) return;
       if (!Array.isArray(result.entries)) throw new Error('目录响应缺少有效 entries。');
@@ -146,4 +183,123 @@ export function createDirectory(nav, session, actions, flash, preview) {
     }
   }
   return { load };
+}
+
+function mountColumnSettings(session, flash, onChange) {
+  const trigger = document.getElementById('directory-columns-toggle');
+  const panel = document.getElementById('directory-columns');
+  const options = document.getElementById('directory-column-options');
+  const reset = document.getElementById('directory-columns-reset');
+  const rows = new Map();
+  let previous = '';
+  const firstChoice = () => options.querySelector('input:not(:disabled)');
+
+  function apply(prefs, force = false) {
+    const selected = prefs.directory_columns || [];
+    const key = selected.join(',');
+    if (key === previous && !force) return;
+    const focus = options.contains(document.activeElement) ? document.activeElement : null;
+    const order = [...selected, ...[...rows.keys()].filter(name => !selected.includes(name))];
+    for (const name of order) {
+      const { row, check, up, down } = rows.get(name);
+      const position = selected.indexOf(name);
+      check.checked = position >= 0;
+      up.disabled = position <= 0;
+      down.disabled = position < 0 || position === selected.length - 1;
+      row.classList.toggle('column-enabled', check.checked);
+      options.append(row);
+    }
+    if (focus) {
+      const next = focus.disabled ? focus.closest('.directory-column-option').querySelector('input') : focus;
+      next.focus({ preventScroll: true });
+    }
+    const resetFocused = document.activeElement === reset;
+    reset.disabled = !selected.length;
+    if (resetFocused && reset.disabled) firstChoice().focus({ preventScroll: true });
+    if (key !== previous) onChange(selected);
+    previous = key;
+  }
+
+  function save(change) {
+    session.save(prefs => ({ directory_columns: change(prefs.directory_columns || []) })).catch(error => {
+      apply(session.preferences, true);
+      flash(`目录列未保存：${error.message}`);
+    });
+  }
+
+  for (const [key, column] of Object.entries(columns)) {
+    const row = document.createElement('div');
+    row.className = 'directory-column-option';
+    const label = document.createElement('label');
+    if (column.hint) label.title = column.hint;
+    const check = document.createElement('input');
+    check.type = 'checkbox';
+    label.append(check, column.label);
+    check.onchange = () => {
+      const checked = check.checked;
+      save(order => checked ? [...new Set([...order, key])] : order.filter(name => name !== key));
+    };
+    const move = (offset, text) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = offset < 0 ? 'icon-btn column-up' : 'icon-btn column-down';
+      button.setAttribute('aria-label', `${column.label}${text}`);
+      button.title = button.getAttribute('aria-label');
+      button.append(icon('up'));
+      button.onclick = () => save(order => {
+        const from = order.indexOf(key);
+        const to = from + offset;
+        if (from < 0 || to < 0 || to >= order.length) return order;
+        const next = [...order];
+        next.splice(from, 1);
+        next.splice(to, 0, key);
+        return next;
+      });
+      return button;
+    };
+    const up = move(-1, '上移');
+    const down = move(1, '下移');
+    const moves = document.createElement('span');
+    moves.className = 'column-moves';
+    moves.append(up, down);
+    row.append(label, moves);
+    rows.set(key, { row, check, up, down });
+  }
+  reset.onclick = () => save(() => []);
+  trigger.append(icon('config'));
+  function positionPanel() {
+    const anchor = trigger.getBoundingClientRect();
+    const width = Math.min(260, window.innerWidth - 24);
+    const below = window.innerHeight - anchor.bottom - 18;
+    const above = below < 240 && anchor.top > below;
+    panel.style.width = `${width}px`;
+    panel.style.left = `${Math.max(12, Math.min(anchor.right - width, window.innerWidth - width - 12))}px`;
+    panel.style.top = above ? 'auto' : `${anchor.bottom + 6}px`;
+    panel.style.bottom = above ? `${window.innerHeight - anchor.top + 6}px` : 'auto';
+    panel.style.maxHeight = `${Math.max(60, above ? anchor.top - 18 : below)}px`;
+  }
+  trigger.onclick = () => {
+    if (panel.matches(':popover-open')) {
+      panel.hidePopover();
+      return;
+    }
+    positionPanel();
+    panel.showPopover();
+    firstChoice().focus({ preventScroll: true });
+  };
+  panel.addEventListener('toggle', () => {
+    trigger.setAttribute('aria-expanded', String(panel.matches(':popover-open')));
+  });
+  panel.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    event.stopPropagation();
+    panel.hidePopover();
+    trigger.focus({ preventScroll: true });
+  });
+  window.addEventListener('resize', () => {
+    if (panel.matches(':popover-open')) positionPanel();
+  });
+  apply(session.preferences, true);
+  session.subscribe(apply);
 }

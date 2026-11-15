@@ -488,7 +488,7 @@ class Application:
 
     def list_directory(self, target: dict, name_filter: str | None = None,
                        cursor: dict | None = None, limit: int | None = None,
-                       sort: str = 'name', kind: str = 'all') -> dict:
+                       sort: str = 'name', kind: str = 'all', include_file_counts: bool = False) -> dict:
         self._target(target)
         if name_filter is not None and not isinstance(name_filter, str):
             raise InvalidTarget('目录过滤条件必须是字符串')
@@ -500,7 +500,7 @@ class Application:
             offset = cursor.get('offset', 0)
             if not isinstance(offset, int) or isinstance(offset, bool) or offset < 0:
                 raise InvalidTarget('游标偏移必须为非负整数')
-        return self.catalog.list_directory(target, name_filter, cursor, limit, sort, kind)
+        return self.catalog.list_directory(target, name_filter, cursor, limit, sort, kind, include_file_counts)
 
     @staticmethod
     def _target(target: dict) -> dict:

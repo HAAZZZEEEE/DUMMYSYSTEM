@@ -742,11 +742,13 @@ class Catalog:
     @_synchronized
     def list_directory(self, target: dict, name_filter: str | None = None,
                        cursor: dict | None = None, limit: int = PAGE_SIZE,
-                       sort: str = 'name', kind: str = 'all') -> dict:
+                       sort: str = 'name', kind: str = 'all', include_file_counts: bool = False) -> dict:
         if sort not in ('name', 'name_desc', 'modified', 'modified_asc', 'type'):
             raise InvalidTarget('不支持的目录排序方式')
         if kind not in ('all', 'dir', 'file'):
             raise InvalidTarget('目录类型必须是 all、dir 或 file')
+        if type(include_file_counts) is not bool:
+            raise InvalidTarget('目录文件数开关必须是布尔值')
         resolved = self.resolve_target(target)
         if resolved["kind"] == "missing":
             raise TargetNotFound("目标目录不存在")
@@ -845,6 +847,8 @@ class Catalog:
         if start > len(entries):
             raise StaleCursor("游标位置超出目录内容，请刷新后重试")
         page = entries[start:start + limit]
+        if include_file_counts:
+            page = [{**entry, 'file_count': self._count_direct_files(entry)} for entry in page]
         next_cursor = None
         if start + len(page) < len(entries):
             next_cursor = {
@@ -864,6 +868,24 @@ class Catalog:
             "snapshot_id": snapshot_id,
             "summary": summary,
         }
+
+    @staticmethod
+    def _count_direct_files(entry: dict) -> int | None:
+        if entry['kind'] != 'dir' or entry['navigation_only'] or entry['is_link']:
+            return None
+        path = io_path(Path(entry['canonical_path']))
+        try:
+            info = path.lstat()
+            if not stat_module.S_ISDIR(info.st_mode) or getattr(info, 'st_reparse_tag', 0):
+                return None
+            # Only count regular files in this directory. Do not follow links or
+            # read descendants, and leave unreadable directories uncounted.
+            with os.scandir(path) as children:
+                stats = (child.stat(follow_symlinks=False) for child in children)
+                return sum(stat_module.S_ISREG(info.st_mode) and not getattr(info, 'st_reparse_tag', 0)
+                           for info in stats)
+        except OSError:
+            return None
 
     @staticmethod
     def _stat_version(info) -> tuple:

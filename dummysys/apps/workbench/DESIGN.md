@@ -77,7 +77,11 @@ by weight and semantic text color. Keep Chinese fallbacks and long-text reading.
 Use the shell's surface, edge and shadow tokens for the two panels. Use the
 shared control tokens for inputs, buttons and dialogs. Directory rows have
 44px and 32px minimums in comfortable and compact density and grow for long
-names. Narrow lists display type and modification time under the file name.
+names. The directory table defaults to Name. Its header settings expose Type,
+Modified, Size and File Count with a saved display order. Name stays first.
+File Count covers direct regular files of a listed directory. Size reports
+individual file sizes. The filename filter is a right-aligned pill in the same
+toolbar as directory sorting and type filtering, with wrapping in tight panes.
 
 ## Navigation and actions
 

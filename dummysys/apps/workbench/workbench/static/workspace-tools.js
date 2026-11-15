@@ -17,10 +17,11 @@ function select(id, label, options, change) {
   el.onchange = () => change(el.value);
   return el;
 }
-function bytes(value) {
-  if (value < 1024) return `${value} B`;
-  if (value < 1024 ** 2) return `${(value / 1024).toFixed(1)} KB`;
-  return `${(value / 1024 ** 2).toFixed(1)} MB`;
+export function formatBytes(value) {
+  for (const [unit, factor] of [['TB', 1024 ** 4], ['GB', 1024 ** 3], ['MB', 1024 ** 2], ['KB', 1024]]) {
+    if (value >= factor) return `${(value / factor).toFixed(1)} ${unit}`;
+  }
+  return `${value} B`;
 }
 
 export function createWorkspaceTools(nav, session, flash) {
@@ -34,8 +35,14 @@ export function createWorkspaceTools(nav, session, flash) {
   const reset = button('directory-reset', '清除筛选', () => {
     nav.options({ kind: 'all', filter: '' }); $('dir-filter').focus();
   });
-  tools.append(kind, sort, reset);
-  $('pane-toolbar').after(tools);
+  reset.className = 'icon-btn hidden';
+  reset.setAttribute('aria-label', '清除筛选');
+  reset.title = '清除筛选';
+  reset.replaceChildren(icon('xmark'));
+  tools.append(kind, sort);
+  $('pane-toolbar').prepend(tools);
+  $('dir-filter').after(reset);
+  $('dir-filter-icon').append(icon('search'));
   const status = document.createElement('div');
   status.id = 'directory-status'; status.className = 'directory-status';
   status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
@@ -46,15 +53,11 @@ export function createWorkspaceTools(nav, session, flash) {
     status.classList.toggle('hidden', !available);
     kind.value = state.kind; sort.value = state.sort;
     kind.disabled = sort.disabled = !available || state.loading;
-    reset.disabled = !state.filter && state.kind === 'all';
+    reset.classList.toggle('hidden', !state.filter && state.kind === 'all');
     const counts = state.resolved?.summary;
     status.textContent = state.loading ? '正在读取目录…' : counts
-      ? `${state.entries.length} / ${counts.total} 项 · ${counts.directories} 个文件夹 · ${counts.files} 个文件 · ${bytes(counts.bytes)}${state.cursor ? ' · 还有更多' : ''}` : '';
+      ? `${state.entries.length} / ${counts.total} 项 · ${counts.directories} 个文件夹 · ${counts.files} 个文件 · ${formatBytes(counts.bytes)}${state.cursor ? ' · 还有更多' : ''}` : '';
     status.title = '当前筛选结果的总计；文件大小只统计本层文件，不递归计算子目录。';
-    const headers = document.querySelectorAll('.entries th');
-    headers.forEach(el => el.removeAttribute('aria-sort'));
-    const column = state.sort === 'modified' ? 2 : state.sort === 'type' ? 1 : 0;
-    headers[column]?.setAttribute('aria-sort', ['modified', 'name_desc'].includes(state.sort) ? 'descending' : 'ascending');
   });
 
   let focus = false;

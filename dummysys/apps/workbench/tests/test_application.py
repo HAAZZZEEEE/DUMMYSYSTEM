@@ -181,6 +181,7 @@ class PreferencesTest(unittest.TestCase):
         application, _ = _app(self.ws, None)
         prefs = application.load_preferences()
         self.assertEqual(prefs["pinned_project_ids"], [])
+        self.assertEqual(prefs["directory_columns"], [])
         self.assertEqual(prefs["schema_version"], 1)
 
     def test_save_load_roundtrip(self):

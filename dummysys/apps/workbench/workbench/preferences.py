@@ -25,7 +25,9 @@ class Preferences:
         return {'schema_version': 1, 'pinned_project_ids': [], 'project_order': [],
                 'theme': 'system', 'accent_color': '#0066cc', 'workspace_name': '', 'last_location': None,
                 'pinned_locations': [], 'recent_locations': [], 'sidebar_width': None,
-                'preview_width': None, 'preview_visible': True, 'task_view': 'indent', 'actor': 'workbench', 'density': 'comfortable', 'nav_sort': 'default', 'homepage_pins': {}, 'homepage_overrides': {}}
+                'preview_width': None, 'preview_visible': True, 'task_view': 'indent', 'actor': 'workbench',
+                'density': 'comfortable', 'directory_columns': [], 'nav_sort': 'default',
+                'homepage_pins': {}, 'homepage_overrides': {}}
 
     @staticmethod
     def _location(value: dict) -> dict:
@@ -50,10 +52,24 @@ class Preferences:
                 # 过期视图值回退到默认样式，同时保留同一偏好文件中的其他设置。
                 if isinstance(saved, dict) and saved.get('task_view') not in ('indent', 'cards'):
                     saved = {key: value for key, value in saved.items() if key != 'task_view'}
+                if isinstance(saved, dict) and 'directory_columns' in saved:
+                    try:
+                        self._directory_columns(saved['directory_columns'])
+                    except InvalidTarget:
+                        saved.pop('directory_columns')
                 data.update(self._validate(saved))
             except (OSError, ValueError, CatalogError):
                 pass
             return data
+
+    @staticmethod
+    def _directory_columns(value) -> list[str]:
+        allowed = ('type', 'modified', 'size', 'file_count')
+        if (not isinstance(value, list) or len(value) > len(allowed)
+                or any(column not in allowed for column in value)
+                or len(set(value)) != len(value)):
+            raise InvalidTarget('目录列必须由不重复的类型、修改时间、大小或文件数组成')
+        return value
 
     @staticmethod
     def _validate(patch: dict) -> dict:
@@ -121,6 +137,8 @@ class Preferences:
                 if value not in ('comfortable', 'compact'):
                     raise InvalidTarget('目录行距必须是 comfortable 或 compact')
                 out[key] = value
+            elif key == 'directory_columns':
+                out[key] = Preferences._directory_columns(value)
             elif key == 'nav_sort':
                 if value not in ('default', 'name', 'name_desc', 'newest', 'oldest'):
                     raise InvalidTarget('不支持的导航排序方式')

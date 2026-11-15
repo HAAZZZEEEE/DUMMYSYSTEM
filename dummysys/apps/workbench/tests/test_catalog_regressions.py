@@ -107,11 +107,13 @@ class CatalogRegressionTest(unittest.TestCase):
         for rel, expected in (("", ["apps", "packages"]), ("apps", ["workbench"]),
                               ("packages", ["core"])):
             with self.subTest(rel=rel):
-                page = self.catalog.list_directory({**target, "relative_path": rel})
+                page = self.catalog.list_directory({**target, "relative_path": rel}, include_file_counts=True)
                 self.assertEqual([e["name"] for e in page["entries"]], expected)
                 self.assertTrue(page["target"]["navigation_only"])
                 self.assertTrue(page["target"]["available"])
                 self.assertEqual(page["target"]["native_path"], str(Path(page["target"]["path"])))
+                for entry in page["entries"]:
+                    self.assertEqual(entry['file_count'], None if entry['navigation_only'] else 0)
         leaf = self.catalog.resolve_target({**target, "relative_path": "apps/workbench"})
         self.assertFalse(leaf["navigation_only"])
         self.assertEqual(leaf["native_path"], str(self.repo / "apps/workbench"))
@@ -121,8 +123,9 @@ class CatalogRegressionTest(unittest.TestCase):
         self.link("apps/workbench/escape", self.repo / "private")
         self.link("apps/workbench/back", self.repo / "apps/workbench")
         self.link("apps/workbench/allowed", self.repo / "packages/core")
-        page = self.catalog.list_directory({**target, "relative_path": "apps/workbench"})
+        page = self.catalog.list_directory({**target, "relative_path": "apps/workbench"}, include_file_counts=True)
         entries = {e["name"]: e for e in page["entries"]}
+        self.assertTrue(all(entry['file_count'] is None for entry in entries.values()))
         for name in ("escape", "back"):
             self.assertTrue(entries[name]["is_link"])
             self.assertFalse(entries[name]["available"])
