@@ -28,8 +28,12 @@ communicate current location and operation scope.
   Main panels retain broad neutral shadows; internal rows and small controls
   use much lighter elevation. Provide opaque fallbacks when transparency is
   reduced or unsupported. Keep the visible keyboard focus ring.
+- Use pill shapes for quick jump, global search, header actions and the project
+  browser's mode switch. With both modes available, the selected segment sits
+  inside the track. With content alone, show one raised pill.
 - Selected projects use lightly raised surfaces. Task groups use a neutral
   boundary. Selected Runs use a shallow tinted surface within their parent.
+  Hover and keyboard focus on history headings stay inside their group border.
   Keep the corresponding project/task/run context visible in the browser.
   Use consistent line icons for project identity instead of initial-letter tiles.
 - Prioritize readable names and secondary metadata. Recognize canonical Task

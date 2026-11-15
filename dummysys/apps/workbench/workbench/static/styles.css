@@ -1171,9 +1171,9 @@ kbd { display: inline-block; padding: 0 5px; min-width: 20px; border: 1px solid 
 .tv-group-title { padding: 8px 10px 2px; font-size: 10px; font-weight: 600; color: var(--ink-muted-48); letter-spacing: .03em; }
 
 .tv-archive { margin: 8px; border: 1px solid var(--hairline); border-radius: 8px; background: var(--surface-pearl); }
-.tv-archive > summary { padding: 8px 10px; color: var(--ink-muted-80); font-size: 12px; cursor: pointer; }
-.tv-archive > summary:hover { background: var(--hover); }
-.tv-archive > summary:focus-visible { outline: 2px solid var(--accent-focus); outline-offset: -2px; border-radius: 8px; }
+.tv-archive > summary { margin: 3px; padding: 5px 7px; border-radius: 5px; color: var(--ink-muted-80); font-size: 12px; cursor: pointer; }
+.tv-archive > summary:hover { background: var(--row-hover); color: var(--ink); }
+.tv-archive > summary:focus-visible { outline: 2px solid var(--accent-focus); outline-offset: -2px; }
 
 /* 样式一：缩进 + 连接线 */
 .task-view[data-task-view="indent"] .tv-task { position: relative; }
