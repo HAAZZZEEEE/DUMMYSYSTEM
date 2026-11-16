@@ -221,6 +221,38 @@ class WorkbenchBrowserTests(BrowserCase):
         self.assertEqual(response.status, 200)
         self.assertTrue(response.headers.get("content-type", "").startswith("image/svg+xml"))
 
+    def test_directory_toolbar_wraps_with_browser_pane_and_keeps_copy_in_path(self):
+        self.project()
+        self.enter(SPECIAL)
+        self.enter(SPECIAL + '/第二层 [深]#&')
+        self.enter(DEEP)
+        toolbar = self.page.locator('#content-navigation')
+        current = toolbar.locator('[aria-current="location"]')
+        expect(current).to_have_text('第三层 空格')
+        copy = toolbar.get_by_test_id('copy-directory')
+        expect(copy).to_be_enabled()
+        for width, two_rows in [(1440, False), (900, True), (390, True), (1440, False)]:
+            with self.subTest(width=width):
+                self.page.set_viewport_size({'width': width, 'height': 800})
+                self.page.wait_for_function('''() => {
+                    const crumbs = document.querySelector('#crumbs').getBoundingClientRect();
+                    const active = document.querySelector('#crumbs [aria-current="location"]').getBoundingClientRect();
+                    return active.left >= crumbs.left - 1 && active.right <= crumbs.right + 1;
+                }''')
+                source, address, operations, well, button = [
+                    toolbar.locator(selector).bounding_box() for selector in
+                    ('.content-sources', '.directory-address', '.location-actions', '.directory-path', '#btn-copy-directory')
+                ]
+                self.assertEqual(address['y'] > source['y'], two_rows)
+                self.assertGreaterEqual(operations['x'], address['x'] + address['width'] - 1)
+                self.assertLessEqual(abs((well['x'] + well['width']) - (button['x'] + button['width'])), 5)
+                self.assertLessEqual(toolbar.evaluate('element => element.scrollWidth'), toolbar.evaluate('element => element.clientWidth') + 1)
+                self.page.screenshot(path=str(self.output / f'directory-toolbar-{width}.png'), animations='disabled')
+
+        self.page.emulate_media(color_scheme='dark')
+        expect(self.page.locator('html')).to_have_attribute('data-theme', 'dark')
+        self.page.screenshot(path=str(self.output / 'directory-toolbar-dark.png'), animations='disabled')
+
     def test_copy_success_records_exact_native_path(self):
         self.project()
         self.enter(SPECIAL)

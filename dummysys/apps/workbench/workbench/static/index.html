@@ -94,28 +94,35 @@
           </div>
         </div>
         <div id="content-navigation" class="content-navigation hidden">
-          <button id="btn-files-toggle" class="icon-btn" aria-label="文件导航" title="收起文件导航" aria-controls="file-navigation" aria-expanded="true"></button>
-          <div id="root-tab-strip" class="root-tab-strip">
-            <button id="root-tabs-prev" class="btn ghost root-tab-scroll hidden" aria-label="向左滚动选项卡" title="向左滚动选项卡" aria-controls="root-tabs" disabled></button>
-            <nav id="root-tabs" class="root-tabs" aria-label="内容区切换"></nav>
-            <button id="root-tabs-next" class="btn ghost root-tab-scroll hidden" aria-label="向右滚动选项卡" title="向右滚动选项卡" aria-controls="root-tabs" disabled></button>
+          <div class="content-sources">
+            <button id="btn-files-toggle" class="icon-btn" aria-label="文件导航" title="收起文件导航" aria-controls="file-navigation" aria-expanded="true"></button>
+            <div id="root-tab-strip" class="root-tab-strip">
+              <button id="root-tabs-prev" class="btn ghost root-tab-scroll hidden" aria-label="向左滚动选项卡" title="向左滚动选项卡" aria-controls="root-tabs" disabled></button>
+              <nav id="root-tabs" class="root-tabs" aria-label="内容区切换"></nav>
+              <button id="root-tabs-next" class="btn ghost root-tab-scroll hidden" aria-label="向右滚动选项卡" title="向右滚动选项卡" aria-controls="root-tabs" disabled></button>
+            </div>
           </div>
-          <div class="workspace-actions">
+          <div class="directory-address">
             <button id="btn-up" data-testid="directory-up" class="icon-btn" title="上级目录" aria-label="上级目录"></button>
-            <button id="btn-preview-toggle" data-testid="preview-toggle" class="icon-btn" aria-label="显示文件预览" aria-pressed="true" aria-controls="preview-pane preview-resizer" title="关闭预览栏"></button>
+            <div id="directory-path" class="directory-path">
+              <span id="directory-path-icon" aria-hidden="true"></span>
+              <nav id="crumbs" class="crumbs" aria-label="面包屑"></nav>
+              <button id="btn-copy-directory" data-testid="copy-directory" class="icon-btn copy-location" aria-label="复制当前目录完整路径" title="复制完整路径"></button>
+            </div>
+            <span id="dir-summary" class="sr-only" role="status" aria-live="polite"></span>
+          </div>
+          <div class="location-actions">
+            <div class="directory-location" role="group" aria-label="当前目录操作">
+              <button id="btn-pin-directory" class="icon-btn" title="固定当前目录" aria-label="固定当前目录" disabled></button>
+              <button id="btn-open-vscode" class="icon-btn" aria-label="用 VS Code 打开当前目录" title="用 VS Code 打开当前目录"></button>
+              <button id="btn-open-explorer" class="icon-btn" aria-label="在资源管理器中打开当前目录" title="在资源管理器中打开当前目录"></button>
+            </div>
+            <div class="location-view">
+              <button id="btn-preview-toggle" data-testid="preview-toggle" class="icon-btn" aria-label="显示文件预览" aria-pressed="true" aria-controls="preview-pane preview-resizer" title="关闭预览栏"></button>
+            </div>
           </div>
         </div>
         <div id="repo-root-menu" class="repo-root-menu" popover="auto" role="menu" aria-label="代码仓库"></div>
-        <div id="crumb-bar" class="crumb-bar hidden">
-          <nav id="crumbs" class="crumbs" aria-label="面包屑"></nav>
-          <div class="directory-location" role="group" aria-label="当前目录操作">
-            <span id="dir-summary" class="sr-only" role="status" aria-live="polite"></span>
-            <button id="btn-copy-directory" data-testid="copy-directory" class="icon-btn copy-location" aria-label="复制当前目录完整路径" title="复制完整路径"></button>
-            <button id="btn-pin-directory" class="icon-btn" title="固定当前目录" aria-label="固定当前目录" disabled></button>
-            <button id="btn-open-vscode" class="icon-btn" aria-label="用 VS Code 打开当前目录" title="用 VS Code 打开当前目录"></button>
-            <button id="btn-open-explorer" class="icon-btn" aria-label="在资源管理器中打开当前目录" title="在资源管理器中打开当前目录"></button>
-          </div>
-        </div>
       </header>
       <section class="main-pane">
         <!-- 工作区首页：系统沙盘与原有固定/最近入口 -->

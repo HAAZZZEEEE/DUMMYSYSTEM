@@ -35,6 +35,11 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
   const homeTab = $('btn-project-home'), contentTab = $('btn-project-content');
   const showcaseToggle = $('btn-showcase-toggle'), filesToggle = $('btn-files-toggle');
   const content = $('project-content');
+  const crumbs = $('crumbs');
+  const revealCurrentCrumb = () => { crumbs.scrollLeft = crumbs.scrollWidth; };
+  new ResizeObserver(() => {
+    if (!crumbs.contains(document.activeElement)) revealCurrentCrumb();
+  }).observe(crumbs);
   const rootTabs = $('root-tabs');
   const rootStrip = $('root-tab-strip');
   const previousTabs = $('root-tabs-prev');
@@ -363,8 +368,7 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
     focusedTab?.focus({ preventScroll: true });
     layoutTabs(changedTab);
     if (focusedTab) { revealTab(focusedTab); updateTabOverflow(); }
-    $('crumbs').replaceChildren();
-    $('crumb-bar').classList.toggle('hidden', !value || home);
+    crumbs.replaceChildren();
     if (value) {
       const root = state.roots.find((item) => item.root_id === value.root_id);
       const parts = value.relative_path.split('/').filter(Boolean);
@@ -380,8 +384,13 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
         if (i === parts.length) link.setAttribute('aria-current', 'location');
         link.className = i === 0 ? 'root' : '';
         link.onclick = (event) => { event.preventDefault(); nav.go(crumbTarget); };
-        if (i) { const sep = document.createElement('span'); sep.className = 'sep'; sep.textContent = '/'; $('crumbs').append(sep); }
-        $('crumbs').append(link);
+        if (i) {
+          const separator = document.createElement('span');
+          separator.className = 'sep';
+          separator.append(icon('chevron'));
+          crumbs.append(separator);
+        }
+        crumbs.append(link);
       }
     }
     $('btn-up').disabled = !value?.relative_path;
@@ -406,9 +415,8 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
     // 项目工具栏作用于项目而非目录：选中项目即显示，目录出错也不隐藏。
     $('project-toolbar').classList.toggle('hidden', !value?.project_id);
     $('dir-summary').textContent = state.loading ? '加载中…' : resolved?.native_path || (value ? `${value.root_id} / ${value.relative_path}` : '');
-    $('crumb-bar').title = resolved?.native_path || '';
-    const crumbs = $('crumbs');
-    crumbs.scrollLeft = crumbs.scrollWidth;
+    $('directory-path').title = resolved?.native_path || '';
+    revealCurrentCrumb();
     $('dir-view').setAttribute('aria-busy', String(state.loading));
     $('dir-view').classList.toggle('hidden', !value || !!state.error);
     content.classList.toggle('hidden', !value || (home && !state.error));
@@ -439,6 +447,7 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
     wirePreviewResizer();
     createWorkspaceTools(nav, session, flash);
     $('browser-project-icon').append(icon('project'));
+    $('directory-path-icon').append(icon('folder'));
     $('global-search-icon').append(icon('search'));
     for (const [id, glyph] of Object.entries({
       'btn-project-refresh': 'refresh', 'btn-back': 'back', 'btn-refresh': 'refresh',

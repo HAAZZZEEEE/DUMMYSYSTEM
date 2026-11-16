@@ -23,6 +23,14 @@ communicate current location and operation scope.
   in the session. Content mode has visible root tabs and a file list beside
   an adjustable preview. The repository tab retains the registered-repository
   selector. Root tabs share a shallow track with a pill-shaped selection.
+- The directory toolbar groups the source tabs, current path and location
+  actions on one line. At browser-pane widths of 660px or less, source tabs
+  take the first row and the path and actions share the second. A shallow
+  inset field contains the breadcrumb and its copy control, with the latter
+  at the trailing edge. Long paths scroll within the field, keeping the
+  current directory visible on navigation and resize. Fine dividers separate
+  source navigation from the address on wide panes and directory actions
+  from the preview switch at every width.
 - Keep task and reading surfaces opaque. Use translucent glass, backdrop blur,
   restrained background halos and bright edges on navigation and outer panels.
   Main panels retain broad neutral shadows; internal rows and small controls
