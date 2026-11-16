@@ -9,6 +9,7 @@ class NarrowDirectoryTests(BrowserCase):
         self.page.reload()
         self.project()
         self.enter(MANY)
+        self.page.get_by_test_id('directory-columns-toggle').click()
         sort = self.page.get_by_label('目录排序', exact=True)
         header = self.page.locator('th[data-column="size"]')
         rows = self.page.get_by_test_id('directory-entry')
@@ -25,7 +26,7 @@ class NarrowDirectoryTests(BrowserCase):
     def test_hidden_columns_keep_their_position_when_shown(self):
         self.project()
         trigger = self.page.get_by_test_id('directory-columns-toggle')
-        panel = self.page.get_by_role('dialog', name='列设置')
+        panel = self.page.get_by_role('dialog', name='目录设置')
         headings = self.page.locator('.entries thead [data-column]')
         choices = panel.locator('.directory-column-option label')
         trigger.click()
@@ -61,7 +62,7 @@ class NarrowDirectoryTests(BrowserCase):
         expect(self.page.locator('#preview-title')).to_have_text('预览.md')
 
         trigger = self.page.get_by_test_id('directory-columns-toggle')
-        panel = self.page.get_by_role('dialog', name='列设置')
+        panel = self.page.get_by_role('dialog', name='目录设置')
         trigger.press('Enter')
         expect(panel).to_be_visible()
         expect(panel.get_by_role('checkbox', name='名称', exact=True)).to_be_disabled()
@@ -85,20 +86,57 @@ class NarrowDirectoryTests(BrowserCase):
         expect(headers).to_have_text(['名称'])
         self.assertEqual(self.application.load_preferences()['directory_columns'], [])
 
-    def test_filename_filter_sits_right_of_directory_controls(self):
+    def test_directory_header_combines_name_search_and_settings(self):
         self.project()
+        heading = self.page.get_by_role('columnheader', name='名称', exact=True)
         filter_field = self.page.get_by_test_id('directory-filter')
-        sort = self.page.get_by_label('目录排序', exact=True)
-        filter_box, sort_box = filter_field.bounding_box(), sort.bounding_box()
-        self.assertGreater(filter_box['x'], sort_box['x'] + sort_box['width'])
-        self.assertAlmostEqual(filter_box['y'] + filter_box['height'] / 2,
-                               sort_box['y'] + sort_box['height'] / 2, delta=2)
-        self.assertGreaterEqual(filter_field.evaluate(
-            'el => parseFloat(getComputedStyle(el).borderTopLeftRadius)'), filter_box['height'] / 2)
+        trigger = self.page.get_by_test_id('directory-columns-toggle')
+        panel = self.page.get_by_role('dialog', name='目录设置', exact=True)
+        kind = panel.get_by_label('筛选条目类型', exact=True)
+        sort = panel.get_by_label('目录排序', exact=True)
+        expect(kind).to_be_hidden()
+        expect(sort).to_be_hidden()
+        for width in (1440, 900, 390):
+            with self.subTest(width=width):
+                self.page.set_viewport_size({'width': width, 'height': 760})
+                label_box, filter_box, trigger_box = [
+                    locator.bounding_box() for locator in
+                    (heading.locator('#directory-name-heading'), filter_field, trigger)
+                ]
+                self.assertGreaterEqual(filter_box['x'], label_box['x'] + label_box['width'])
+                self.assertGreaterEqual(trigger_box['x'], filter_box['x'] + filter_box['width'])
+                self.assertAlmostEqual(filter_box['y'] + filter_box['height'] / 2,
+                                       trigger_box['y'] + trigger_box['height'] / 2, delta=2)
+                self.assertAlmostEqual(label_box['y'] + label_box['height'] / 2,
+                                       trigger_box['y'] + trigger_box['height'] / 2, delta=2)
+                self.page.screenshot(path=self.output / f'directory-header-{width}.png', animations='disabled')
+
+        trigger.press('Enter')
+        expect(kind).to_be_focused()
+        expect(sort).to_be_visible()
+        kind.select_option('dir')
+        expect(self.page.get_by_test_id('directory-entry')).to_have_count(2)
+        expect(kind).to_be_focused()
+        expect(panel).to_be_visible()
+        self.page.screenshot(path=self.output / 'directory-settings-390.png', animations='disabled')
+        self.page.keyboard.press('Escape')
+        expect(panel).to_be_hidden()
+        expect(trigger).to_be_focused()
+
         self.page.keyboard.press('/')
         expect(filter_field).to_be_focused()
-        filter_field.fill('筛选-甲')
+        filter_field.fill('205')
         expect(self.page.get_by_test_id('directory-entry')).to_have_count(1)
+        expect(self.page.get_by_test_id('directory-entry')).to_contain_text(MANY)
+        self.page.get_by_role('button', name='清除筛选').click()
+        expect(filter_field).to_have_value('')
+        expect(self.page.get_by_test_id('directory-entry')).to_have_count(6)
+
+        self.page.emulate_media(color_scheme='dark')
+        expect(self.page.locator('html')).to_have_attribute('data-theme', 'dark')
+        trigger.click()
+        expect(panel).to_be_visible()
+        self.page.screenshot(path=self.output / 'directory-settings-dark.png', animations='disabled')
 
     def test_record_labels_preserve_raw_targets_and_invalid_names(self):
         name = '[task 12][20261028]核对中文长路径与项目浏览器显示的一致性'
@@ -179,13 +217,16 @@ class NarrowDirectoryTests(BrowserCase):
         directory = self.page.get_by_test_id("directory-view")
         trigger = self.page.get_by_test_id('directory-columns-toggle')
         trigger.click()
-        expect(self.page.get_by_role('dialog', name='列设置')).to_be_visible()
+        expect(self.page.get_by_role('dialog', name='目录设置')).to_be_visible()
         self.page.keyboard.press('Escape')
         scroll = directory.evaluate("e => ({client:e.clientWidth, full:e.scrollWidth})")
         self.assertGreater(scroll["full"], scroll["client"])
         directory.evaluate("e => e.scrollLeft = e.scrollWidth")
         action = self.page.locator(".entries tbody tr").first.locator("td").last
         self.assertLessEqual(action.bounding_box()["x"] + action.bounding_box()["width"], directory.bounding_box()["x"] + directory.bounding_box()["width"], "横向滚动后操作列仍无法完整访问")
+        self.page.keyboard.press('/')
+        expect(self.page.get_by_test_id('directory-filter')).to_be_focused()
+        self.assertEqual(directory.evaluate('e => e.scrollLeft'), 0)
         handle.dblclick()
         self.assertGreaterEqual(self.page.locator(".entries th").first.bounding_box()["width"], 140)
         self.assertEqual(self.page_errors, [])

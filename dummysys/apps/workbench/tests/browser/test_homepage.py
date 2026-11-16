@@ -107,7 +107,7 @@ catch { document.querySelector('#isolation').textContent = '隔离成功'; }
         expect(self.frame.locator('#isolation')).to_have_text('隔离成功')
         expect(self.frame.locator('h1')).to_have_css('color', 'rgb(20, 80, 140)')
         expect(self.frame.frame_locator('iframe').locator('h1')).to_have_text('项目自己的子页面')
-        expect(self.page.locator('#pane-toolbar')).to_be_hidden()
+        expect(self.page.get_by_test_id('directory-filter')).to_be_hidden()
         expect(self.page.locator('#directory-tools')).to_be_hidden()
         expect(self.page.locator('#main-split')).to_be_hidden()
         box = self.page.get_by_test_id('homepage-frame').bounding_box()

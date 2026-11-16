@@ -464,21 +464,26 @@
 .workspace-focus #btn-files-toggle, .workspace-focus #btn-show-projects { display: none; }
 .mobile-switch { display: none; }
 
-.split-list .pane-toolbar { flex-wrap: wrap; gap: 5px 8px; padding: 8px 10px 6px; }
-.split-list .directory-tools { gap: 4px; padding: 0; max-width: 100%; }
-.sidebar-header select.btn, .task-filters select, .split-list .directory-tools select {
+.sidebar-header select.btn, .task-filters select, .directory-tools select {
   border: 1px solid var(--divider-soft);
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--ink) 5%, var(--canvas));
   color: var(--ink-muted-80);
   box-shadow: none;
 }
-.split-list .directory-tools select { height: 28px; padding: 0 6px; font-size: 11px; }
+.directory-name-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* Keep the search clear of the sticky settings cell in a scrolling table. */
+  max-inline-size: calc(100cqi - 76px);
+}
+#directory-name-heading { flex: none; }
 .directory-filter {
   position: relative;
   display: flex;
-  flex: 1 1 120px;
-  min-width: 102px;
+  flex: 1 1 auto;
+  min-width: 0;
   max-width: 220px;
   margin-inline-start: auto;
 }
@@ -492,16 +497,20 @@
   color: var(--workspace-muted);
 }
 #dir-filter-icon .type-icon { width: 13px; height: 13px; }
-.split-list .directory-filter input {
-  height: 29px;
+.directory-filter input {
+  height: 28px;
   width: 100%;
   min-width: 0;
-  flex: 1;
-  padding-inline: 27px 10px;
+  padding-inline: 27px 9px;
+  border: 1px solid var(--hairline);
   border-radius: var(--radius-pill);
   background: var(--canvas);
+  color: var(--ink);
   font-size: 11px;
+  font-weight: 400;
 }
+.directory-filter input::placeholder { color: var(--workspace-muted); }
+.directory-filter input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .directory-filter input::-webkit-search-cancel-button { display: none; }
 .directory-filter:has(#directory-reset:not(.hidden)) input { padding-inline-end: 30px; }
 #directory-reset {
@@ -524,10 +533,11 @@
 .entries th[data-column="type"] { min-width: 72px; }
 .entries [data-column="size"], .entries [data-column="file_count"] { text-align: end; }
 .entries .col-act { width: 42px; min-width: 42px; padding-inline: 5px; text-align: end; }
-.entries th.col-act { inset-inline-end: 0; z-index: 2; padding-block: 3px; }
+.entries th[data-column="name"], .entries th.col-act { padding-block: 5px; }
+.entries th.col-act { inset-inline-end: 0; z-index: 2; }
 #directory-columns-toggle { width: 27px; height: 27px; border-radius: var(--radius-pill); }
 #directory-columns-toggle[aria-expanded="true"] { background: var(--accent-surface); color: var(--accent); }
-.directory-columns {
+.directory-settings {
   position: fixed;
   inset: auto;
   margin: 0;
@@ -539,16 +549,32 @@
   color: var(--ink);
   box-shadow: var(--panel-shadow);
 }
-.directory-columns header {
+.directory-settings header { padding: 4px 6px 6px; }
+.directory-settings h2, .directory-settings h3 { margin: 0; font-size: 13px; font-weight: 650; }
+.directory-settings .directory-tools {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px 12px;
+  padding: 4px 6px 10px;
+  color: var(--ink-muted-80);
+  font-size: 12px;
+}
+.directory-tools select {
+  width: 100%;
+  height: 28px;
+  padding-inline: 8px;
+  font: inherit;
+}
+.directory-column-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 0 5px 5px;
-  border-bottom: 1px solid var(--divider-soft);
+  padding: 6px;
+  border-top: 1px solid var(--divider-soft);
 }
-.directory-columns h2 { margin: 0; font-size: 13px; font-weight: 650; }
-.directory-columns .btn { height: 25px; font-size: 11px; }
+.directory-settings .btn { height: 25px; font-size: 11px; }
 .directory-column-option { display: flex; align-items: center; gap: 4px; min-height: 33px; }
 .directory-column-option label {
   display: flex;
@@ -592,9 +618,10 @@
   .name-cell { gap: 5px; }
   .name-cell .type-icon { width: 16px; height: 16px; }
 }
-@container (max-width: 340px) {
-  .split-list .directory-tools select { max-width: 76px; }
-  .directory-filter { flex-basis: 92px; min-width: 92px; }
+@container (max-width: 220px) {
+  .directory-name-header { gap: 5px; }
+  #dir-filter-icon { display: none; }
+  .directory-filter input { padding-inline-start: 6px; }
 }
 
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {

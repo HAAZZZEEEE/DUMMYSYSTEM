@@ -411,7 +411,6 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
     $('btn-copy-directory').onclick = () => actions.copy(snapshot, resolved);
     $('dir-filter').disabled = !value || home || !!state.error;
     if ($('dir-filter').value !== state.filter) $('dir-filter').value = state.filter;
-    $('pane-toolbar').classList.toggle('hidden', !value || home || !!state.error);
     // 项目工具栏作用于项目而非目录：选中项目即显示，目录出错也不隐藏。
     $('project-toolbar').classList.toggle('hidden', !value?.project_id);
     $('dir-summary').textContent = state.loading ? '加载中…' : resolved?.native_path || (value ? `${value.root_id} / ${value.relative_path}` : '');

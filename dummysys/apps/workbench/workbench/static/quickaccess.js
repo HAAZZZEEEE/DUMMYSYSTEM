@@ -248,12 +248,13 @@ export function createQuickAccess(nav, session, flash) {
         input.focus();
       } else if (!commandPressed(event) && !event.shiftKey && event.key === '/' && !open && !editable(event.target)) {
         if (document.querySelector('dialog[open]')) return;
-        if ($('dir-filter').disabled || $('pane-toolbar').classList.contains('hidden')) return;
+        if ($('dir-filter').disabled || $('directory-columns').matches(':popover-open')) return;
         event.preventDefault();
         const showBrowser = $('btn-show-browser');
         if (showBrowser.getClientRects().length) showBrowser.click();
         const files = $('btn-files-toggle');
         if (files.getAttribute('aria-expanded') === 'false') files.click();
+        $('dir-view').scrollLeft = 0;
         $('dir-filter').focus();
       }
     });

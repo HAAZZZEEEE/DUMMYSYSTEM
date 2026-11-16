@@ -94,11 +94,12 @@ Modified, Size and File Count. Name stays first. In the column settings,
 moving an optional column changes its left-to-right position, including when
 it is hidden. Visibility and order survive reloads.
 File Count covers direct regular files of a listed directory. Size reports
-individual file sizes. The filename filter is a right-aligned pill in the same
-toolbar as directory sorting and type filtering, with wrapping in tight panes.
-Compact toolbar selectors use low-contrast pills, and adjacent primary and
-secondary actions use the same height. The sticky table header blends into
-the file list without a drawn bottom edge.
+individual file sizes. The sticky table header places the filename search on
+the Name column's row and the settings control at the trailing edge. Search
+compresses in tight panes. Directory Settings contains type filtering and
+sorting above the column visibility and order controls. The column reset
+restores only column visibility and order. The header blends into the file
+list without a drawn bottom edge.
 
 Settings use a glass outer panel and opaque groups for Appearance, Workspace,
 and Runtime. The title and close control stay above the scroll area, and

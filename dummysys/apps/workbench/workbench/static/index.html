@@ -137,20 +137,23 @@
         <section id="project-content" class="project-content" aria-label="项目内容">
           <div id="main-split" class="main-split">
             <div id="file-navigation" class="split-list">
-              <div class="pane-toolbar hidden" id="pane-toolbar">
-                <div class="directory-filter">
-                  <span id="dir-filter-icon" aria-hidden="true"></span>
-                  <input id="dir-filter" data-testid="directory-filter" aria-label="筛选当前目录" type="search" placeholder="按名称筛选" autocomplete="off">
-                </div>
-              </div>
               <!-- 目录列表 -->
               <section id="dir-view" data-testid="directory-view" aria-label="目录内容" class="dir-view hidden">
                 <table class="entries">
                   <thead><tr>
-                    <th scope="col" data-column="name">名称</th>
+                    <th scope="col" data-column="name" aria-labelledby="directory-name-heading">
+                      <div class="directory-name-header">
+                        <span id="directory-name-heading">名称</span>
+                        <div class="directory-filter">
+                          <span id="dir-filter-icon" aria-hidden="true"></span>
+                          <input id="dir-filter" data-testid="directory-filter" aria-label="筛选当前目录"
+                            type="search" placeholder="按名称筛选" autocomplete="off" disabled>
+                        </div>
+                      </div>
+                    </th>
                     <th scope="col" class="col-act">
                       <button id="directory-columns-toggle" data-testid="directory-columns-toggle" class="icon-btn"
-                        type="button" aria-label="目录列设置" title="目录列设置"
+                        type="button" aria-label="目录设置" title="目录设置"
                         aria-controls="directory-columns" aria-haspopup="dialog" aria-expanded="false"></button>
                     </th>
                   </tr></thead>
@@ -189,14 +192,24 @@
   </div>
 </div>
 
-<div id="directory-columns" class="directory-columns" popover="auto" role="dialog" aria-labelledby="directory-columns-title">
-  <header><h2 id="directory-columns-title">列设置</h2><button id="directory-columns-reset" class="btn ghost" type="button">恢复默认</button></header>
-  <div id="directory-column-options">
-    <div class="directory-column-option">
-      <label title="名称固定显示"><input type="checkbox" checked disabled>名称</label>
-      <small class="directory-column-fixed">固定首列</small>
-    </div>
+<div id="directory-columns" class="directory-settings" popover="auto" role="dialog" aria-labelledby="directory-settings-title">
+  <header><h2 id="directory-settings-title">目录设置</h2></header>
+  <div id="directory-tools" class="directory-tools">
+    <label for="directory-kind">类型筛选</label>
+    <label for="directory-sort">排序方式</label>
   </div>
+  <section aria-labelledby="directory-column-title">
+    <div class="directory-column-heading">
+      <h3 id="directory-column-title">显示列</h3>
+      <button id="directory-columns-reset" class="btn ghost" type="button">恢复默认</button>
+    </div>
+    <div id="directory-column-options">
+      <div class="directory-column-option">
+        <label title="名称固定显示"><input type="checkbox" checked disabled>名称</label>
+        <small class="directory-column-fixed">固定首列</small>
+      </div>
+    </div>
+  </section>
 </div>
 
 <dialog id="copy-dialog" data-testid="copy-dialog" aria-labelledby="copy-title">

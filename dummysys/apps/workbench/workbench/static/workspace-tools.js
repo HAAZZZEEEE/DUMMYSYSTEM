@@ -33,9 +33,7 @@ export const directorySorts = {
 };
 
 export function createWorkspaceTools(nav, session, flash) {
-  const tools = document.createElement('div');
-  tools.className = 'directory-tools'; tools.id = 'directory-tools';
-  tools.setAttribute('role', 'group'); tools.setAttribute('aria-label', '目录显示选项');
+  const tools = $('directory-tools');
   const kind = select('directory-kind', '筛选条目类型', [['all', '全部类型'], ['dir', '仅文件夹'], ['file', '仅文件']],
     value => nav.options({ kind: value }));
   const sort = select('directory-sort', '目录排序', Object.values(directorySorts).flat(),
@@ -47,8 +45,8 @@ export function createWorkspaceTools(nav, session, flash) {
   reset.setAttribute('aria-label', '清除筛选');
   reset.title = '清除筛选';
   reset.replaceChildren(icon('xmark'));
-  tools.append(kind, sort);
-  $('pane-toolbar').prepend(tools);
+  tools.querySelector('[for="directory-kind"]').after(kind);
+  tools.querySelector('[for="directory-sort"]').after(sort);
   $('dir-filter').after(reset);
   $('dir-filter-icon').append(icon('search'));
   const status = document.createElement('div');
@@ -57,10 +55,9 @@ export function createWorkspaceTools(nav, session, flash) {
   $('dir-view').after(status);
   nav.subscribe(state => {
     const available = !!state.target && state.target.root_id !== 'homepage' && !state.error;
-    tools.classList.toggle('hidden', !available);
     status.classList.toggle('hidden', !available);
     kind.value = state.kind; sort.value = state.sort;
-    kind.disabled = sort.disabled = !available || state.loading;
+    kind.disabled = sort.disabled = !available || !state.target?.root_id;
     reset.classList.toggle('hidden', !state.filter && state.kind === 'all');
     const counts = state.resolved?.summary;
     status.textContent = state.loading ? '正在读取目录…' : counts

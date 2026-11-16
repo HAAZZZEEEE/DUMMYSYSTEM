@@ -126,7 +126,7 @@ export function createDirectory(nav, session, actions, flash, preview) {
     }
   }
   nav.subscribe(render);
-  mountColumnSettings(session, flash, visible => {
+  mountDirectorySettings(session, flash, visible => {
     const needCounts = visible.includes('file_count') && !visibleColumns.includes('file_count');
     visibleColumns = visible;
     header.querySelectorAll('.directory-detail').forEach(cell => cell.remove());
@@ -185,7 +185,7 @@ export function createDirectory(nav, session, actions, flash, preview) {
   return { load };
 }
 
-function mountColumnSettings(session, flash, onChange) {
+function mountDirectorySettings(session, flash, onChange) {
   const trigger = document.getElementById('directory-columns-toggle');
   const panel = document.getElementById('directory-columns');
   const options = document.getElementById('directory-column-options');
@@ -289,9 +289,9 @@ function mountColumnSettings(session, flash, onChange) {
   function positionPanel() {
     const anchor = trigger.getBoundingClientRect();
     const width = Math.min(260, window.innerWidth - 24);
-    const below = window.innerHeight - anchor.bottom - 18;
-    const above = below < 240 && anchor.top > below;
     panel.style.width = `${width}px`;
+    const below = window.innerHeight - anchor.bottom - 18;
+    const above = below < panel.scrollHeight && anchor.top - 18 > below;
     panel.style.left = `${Math.max(12, Math.min(anchor.right - width, window.innerWidth - width - 12))}px`;
     panel.style.top = above ? 'auto' : `${anchor.bottom + 6}px`;
     panel.style.bottom = above ? `${window.innerHeight - anchor.top + 6}px` : 'auto';
@@ -302,9 +302,10 @@ function mountColumnSettings(session, flash, onChange) {
       panel.hidePopover();
       return;
     }
-    positionPanel();
     panel.showPopover();
-    firstChoice().focus({ preventScroll: true });
+    positionPanel();
+    const kind = document.getElementById('directory-kind');
+    (kind.disabled ? firstChoice() : kind).focus({ preventScroll: true });
   };
   panel.addEventListener('toggle', () => {
     trigger.setAttribute('aria-expanded', String(panel.matches(':popover-open')));
