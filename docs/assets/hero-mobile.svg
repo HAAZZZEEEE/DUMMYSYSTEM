@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="350" viewBox="0 0 600 350" role="img" aria-labelledby="title desc">
+  <title id="title">DUMMYSYS — 简单但高效的面向Agent 的持久化上下文管理方法论&amp;工具</title>
+  <desc id="desc">以治理规则和 CLI 组织项目背景、任务进展与执行证据。Workbench 是可选的可视化入口。</desc>
+  <rect width="600" height="350" rx="12" fill="#2D2738"/>
+  <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif">
+    <text x="31" y="68" font-size="46" fill="#F5F3F7" font-weight="700">DUMMYSYS</text>
+    <text x="32" y="127" font-size="33" fill="#ADC67F" font-weight="600">
+      <tspan x="32">简单但高效的面向Agent 的</tspan>
+      <tspan x="32" dy="44">持久化上下文管理方法论&amp;工具</tspan>
+    </text>
+    <text x="32" y="216" font-size="22" fill="#D2CADF">项目背景 · 任务进展 · 执行证据</text>
+    <path d="M32 242H568" fill="none" stroke="#78659D" stroke-width="2"/>
+    <text x="32" y="278" font-size="20" fill="#ADC67F" font-weight="600">治理规则 + CLI</text>
+    <text x="214" y="278" font-size="19" fill="#D2CADF">可独立使用的核心工作流</text>
+    <text x="32" y="315" font-size="20" fill="#ADC67F" font-weight="600">Workbench</text>
+    <text x="214" y="315" font-size="19" fill="#D2CADF">可选可视化入口</text>
+  </g>
+</svg>
