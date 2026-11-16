@@ -530,7 +530,6 @@ body.sidebar-resizing * { cursor: col-resize !important; user-select: none !impo
   white-space: nowrap;
   font-weight: 500;
 }
-.dir-row .name-text { font-weight: 600; }
 td.type, td.mod {
   color: var(--ink-muted-48);
   font-size: 13px;
@@ -769,7 +768,6 @@ dialog p { color: var(--ink-muted-80); }
 .entries tbody tr { animation: none; }
 .name-cell { gap: 9px; }
 .name-text { font-weight: 400; }
-.dir-row .name-text { font-weight: 500; }
 .folder-icon, .file-icon { width: 24px; height: 26px; border-radius: 5px; background: transparent; }
 .folder-icon { color: var(--accent); }
 .file-icon { color: var(--ink-muted-48); }
@@ -1386,7 +1384,7 @@ kbd { display: inline-block; padding: 0 5px; min-width: 20px; border: 1px solid 
 .entries th:last-child { border-radius: 0 9px 9px 0; }
 .entries tbody tr { transition: background .16s ease; animation: none; }
 .entries tbody tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--accent-surface); }
-.entries td { height: 44px; }
+.entries td { height: 35px; }
 :root[data-density="compact"] .entries td { height: 32px; }
 .access-card { border-radius: 14px; box-shadow: 0 2px 8px var(--shadow-soft); transition: transform .18s var(--spring), box-shadow .18s; }
 .access-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px var(--shadow-soft); }

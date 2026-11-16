@@ -116,6 +116,38 @@ class NarrowDirectoryTests(BrowserCase):
         expect(self.row(name + '/runs/' + run_name).locator('.entry-record-meta')).to_have_text('2026-10-28 · 23:45')
         self.enter(name + '/runs/' + run_name)
 
+    def test_single_line_name_reveals_full_text_on_keyboard_focus(self):
+        name = '[task 12][20261028]核对中文长路径、预览区和可选列启用后的文件名称显示效果及键盘导航'
+        filename = '验收报告 Workbench 浏览器目录与文件预览长名称显示及键盘操作记录.md'
+        (self.docs[A] / name).mkdir()
+        (self.docs[A] / filename).write_text('验收记录\n', encoding='utf-8')
+        self.project()
+        self.page.get_by_test_id('preview-toggle').click()
+        task = self.row(name)
+        label = task.locator('.name-text')
+        metadata = task.locator('.entry-record-meta')
+        expect(label).to_have_css('font-weight', '400')
+        expect(metadata).to_have_text('任务 #12 · 2026-10-28')
+        self.assertGreater(metadata.bounding_box()['x'], label.bounding_box()['x'])
+
+        self.page.set_viewport_size({'width': 390, 'height': 760})
+        expect(label).to_have_attribute('title', name)
+        expect(task).to_have_accessible_name('目录：' + name)
+        self.assertGreater(metadata.bounding_box()['y'], label.bounding_box()['y'])
+        self.assertTrue(label.evaluate('e => e.scrollWidth > e.clientWidth'))
+        expect(label).to_have_css('text-overflow', 'ellipsis')
+        file_label = self.row(filename).locator('.name-text')
+        expect(file_label).to_have_css('white-space', 'nowrap')
+        expect(file_label).to_have_attribute('title', filename)
+        name_height = label.bounding_box()['height']
+        task.press('ArrowDown')
+        self.page.keyboard.press('ArrowUp')
+        expect(task).to_be_focused()
+        expect(label).to_have_css('white-space', 'normal')
+        self.assertGreater(label.bounding_box()['height'], name_height)
+        self.page.keyboard.press('Enter')
+        self.ready(name)
+
     def test_narrow_list_keeps_header_text_inside_its_column(self):
         self.project()
         handle = self.page.get_by_test_id("preview-resizer")

@@ -84,8 +84,12 @@ by weight and semantic text color. Keep Chinese fallbacks and long-text reading.
 
 Use the shell's surface, edge and shadow tokens for the two panels. Use the
 shared control tokens for inputs, buttons and dialogs. Directory rows have
-44px and 32px minimums in comfortable and compact density and grow for long
-names. The directory table defaults to Name. Its header settings expose Type,
+35px and 32px minimums in comfortable and compact density. File and directory
+names use regular 12.5px text on one line with an ellipsis when needed. Hover
+shows the original name, and keyboard focus wraps the row's name to reveal it.
+Task and Run metadata sits on the same line when the name cell has room and
+below the name when the cell narrows, including when optional columns are shown.
+The directory table defaults to Name. Its header settings expose Type,
 Modified, Size and File Count. Name stays first. In the column settings,
 moving an optional column changes its left-to-right position, including when
 it is hidden. Visibility and order survive reloads.
