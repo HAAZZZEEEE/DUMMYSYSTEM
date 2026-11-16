@@ -41,6 +41,31 @@ def wheel_packages(directory):
     return selected
 
 
+def stage_release(runtime, destination, evidence, wheels, packages, desktop):
+    evidence.mkdir(parents=True)
+    env = packaging_environment(runtime)
+    (runtime / "tmp").mkdir(exist_ok=True)
+    def run(command, log):
+        process = subprocess.run(command, env=env, capture_output=True)
+        (evidence / log).write_bytes(process.stdout + process.stderr)
+        if process.returncode:
+            raise ValueError(f"安装步骤 {log} 失败（{process.returncode}）；保留现场，请使用新 release-id 重试")
+        return process.stdout
+    # 使用宿主 pip 驱动目标解释器，避免 ensurepip 在深层路径解包自身。
+    run([sys.executable, "-I", "-m", "venv", "--without-pip", str(destination)], "venv.log")
+    python = venv_python(destination)
+    run([sys.executable, "-I", "-m", "pip", "--python", str(python), "install", "--disable-pip-version-check", "--no-compile", "--no-index", "--find-links", str(wheels), *(str(p) + ("[desktop]" if desktop and p.name.startswith("dummysys_workbench-") else "") for p in packages)], "install.log")
+    run([str(python), "-I", "-B", "-m", "dummysys_cli", "capabilities", "--json"], "installed-capabilities.json")
+    actual = json.loads(run([str(python), "-I", "-c",
+        "import json,sys,dummysys_core,dummysys_cli,workbench; print(json.dumps(dict(python=sys.executable,core=dummysys_core.__file__,cli=dummysys_cli.__file__,workbench=workbench.__file__)))"], "imports.json"))
+    for name in ("core", "cli", "workbench"):
+        if not Path(actual[name]).resolve().is_relative_to(destination):
+            raise ValueError("安装模块未隔离在目标发行环境")
+    hashes = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in packages}
+    identity = "wheel-sha256:" + hashlib.sha256(json.dumps(hashes, sort_keys=True).encode()).hexdigest()
+    return python, Path(actual["core"]).parent.parent, hashes, identity
+
+
 def main(argv=None):
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, 'reconfigure'):
@@ -94,30 +119,9 @@ def main(argv=None):
         value = json.loads(config.read_text(encoding="utf-8-sig"))
         if value.get("schema_version") != 1 or Path(value.get("workspace", "")).resolve() != root:
             raise ValueError("既有配置指向其他工作区，已保留原文件")
-    evidence.mkdir(parents=True)
-    env = packaging_environment(runtime)
-    (runtime / "tmp").mkdir(exist_ok=True)
-    def run(command, log):
-        process = subprocess.run(command, env=env, capture_output=True)
-        (evidence / log).write_bytes(process.stdout + process.stderr)
-        if process.returncode:
-            raise ValueError(f"安装步骤 {log} 失败（{process.returncode}）；保留现场，请使用新 release-id 重试")
-        return process.stdout
-    # 使用宿主 pip 驱动目标解释器，避免 ensurepip 在深层路径解包自身。
-    run([sys.executable, "-I", "-m", "venv", "--without-pip", str(destination)], "venv.log")
-    python = venv_python(destination)
-    run([sys.executable, "-I", "-m", "pip", "--python", str(python), "install", "--disable-pip-version-check", "--no-compile", "--no-index", "--find-links", str(wheels), *(str(p) + ("[desktop]" if args.desktop and p.name.startswith("dummysys_workbench-") else "") for p in packages)], "install.log")
-    run([str(python), "-I", "-B", "-m", "dummysys_cli", "capabilities", "--json"], "installed-capabilities.json")
-    actual = json.loads(run([str(python), "-I", "-c",
-        "import json,sys,dummysys_core,dummysys_cli,workbench; print(json.dumps(dict(python=sys.executable,core=dummysys_core.__file__,cli=dummysys_cli.__file__,workbench=workbench.__file__)))"], "imports.json"))
-    for name in ("core", "cli", "workbench"):
-        if not Path(actual[name]).resolve().is_relative_to(destination):
-            raise ValueError("安装模块未隔离在目标发行环境")
-    hashes = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in packages}
-    identity = "wheel-sha256:" + hashlib.sha256(json.dumps(hashes, sort_keys=True).encode()).hexdigest()
+    python, core_path, hashes, identity = stage_release(runtime, destination, evidence, wheels, packages, args.desktop)
     manifest_path = runtime / "state/workspace/cli-install.json"
     previous = json.loads(manifest_path.read_text(encoding="utf-8-sig")) if manifest_path.exists() else None
-    core_path = Path(actual["core"]).parent.parent
     sys.path.insert(0, str(core_path))
     from dummysys_core import __version__
     from dummysys_core.operations import workspace_lock, Operations
