@@ -23,11 +23,16 @@ communicate current location and operation scope.
   Panel headers and directory totals remain outside the fade.
 - The project browser owns homepage/content switching. A project supplies its
   own customizable homepage. Every project retains the Home/Content switch.
-  Without a custom page, Home shows a built-in dashboard using the current
-  project navigation records: non-archived task counts, execution counts,
-  three newest tasks and registered roots. Below it, editable Agent prompt
-  examples explain customization and can be copied with project identity and
-  configuration instructions. Empty projects retain the dashboard and guide.
+  Without a custom page, Home is a starter draft: a short text summary of
+  non-archived tasks, inline execution/repository counts, three newest tasks
+  and text links to registered roots. Pending tasks exclude completed and
+  cancelled tasks. Avoid metric cards and a finished-dashboard appearance.
+  Below the real data, dashed placeholders suggest goals, charts and resources,
+  fading downward into whitespace. Only these noninteractive, aria-hidden
+  illustrations fade; the Agent guidance, editable examples and copy button
+  remain fully opaque. Do not animate the placeholders as loading skeletons.
+  Forced colors hides the decoration. Copied examples include project identity
+  and configuration instructions. Empty projects retain the draft and guide.
   Invalid custom configuration remains an error with refresh recovery.
   The homepage can expand by hiding the project
   display. Returning to content restores the project's latest content location

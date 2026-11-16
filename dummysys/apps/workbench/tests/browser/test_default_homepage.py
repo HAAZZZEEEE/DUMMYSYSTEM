@@ -43,11 +43,14 @@ class DefaultHomepageTests(BrowserCase):
         expect(panel.get_by_role('status')).to_contain_text('请复制已选中')
         expect(prompt).to_be_focused()
         self.assertIn('workbench.json', prompt.input_value())
+        complete = prompt.input_value()
+        panel.get_by_role('button', name='复制提示词', exact=True).click()
+        expect(prompt).to_have_value(complete)
 
     def test_metrics_recent_tasks_roots_and_content_history(self):
         tasks = self.seed()
         panel = self.home()
-        for label, value in [('全部任务','3'),('进行中','1'),('已完成','1'),('执行记录','3')]:
+        for label, value in [('全部任务','3'),('待推进','2'),('已完成','1'),('执行记录','3')]:
             expect(panel.get_by_label(label, exact=True).locator('strong')).to_have_text(value)
         recent = panel.get_by_role('region', name='最近任务', exact=True)
         expect(recent.get_by_role('button').first).to_contain_text('等候外部资料')
@@ -86,6 +89,8 @@ class DefaultHomepageTests(BrowserCase):
     def test_layout_themes_and_keyboard(self):
         self.seed()
         panel = self.home()
+        expect(panel.locator('.dh-draft-space')).to_have_attribute('aria-hidden', 'true')
+        expect(panel.locator('.dh-draft-space button')).to_have_count(0)
         for width, height in [(1440,1000),(900,700),(390,844)]:
             self.page.set_viewport_size(dict(width=width,height=height))
             expect(panel).to_be_visible()
@@ -96,10 +101,27 @@ class DefaultHomepageTests(BrowserCase):
             self.page.screenshot(path=str(self.output / f'default-home-guide-{width}.png'))
             panel.evaluate('(e)=>e.scrollTop=0')
         self.page.emulate_media(color_scheme='dark', reduced_motion='reduce')
+        panel.get_by_role('button', name='复制提示词', exact=True).scroll_into_view_if_needed()
         self.page.screenshot(path=str(self.output / 'default-home-dark.png'))
+        self.page.emulate_media(forced_colors='active')
+        expect(panel.locator('.dh-draft-space')).to_be_hidden()
+        expect(panel.get_by_role('button', name='复制提示词', exact=True)).to_be_visible()
+        self.page.emulate_media(forced_colors='none')
         tab = self.page.get_by_role('tab', name='项目首页', exact=True)
         tab.focus(); self.page.keyboard.press('ArrowRight')
         content = self.page.get_by_role('tab', name='项目内容', exact=True)
         expect(content).to_be_focused()
         self.page.keyboard.press('Enter')
         self.ready()
+
+    def test_summary_excludes_cancelled_and_archived_from_pending(self):
+        self.seed()
+        cancelled = self.docs[A] / '[task 4][20261116]取消的工作'
+        cancelled.mkdir()
+        (cancelled / 'README.md').write_text('---\ntitle: 取消的工作\nstatus: cancelled\n---\n', encoding='utf-8')
+        archived = self.docs[A] / 'archive/[task 5][20261116]归档的工作'
+        archived.mkdir(parents=True)
+        (archived / 'README.md').write_text('---\ntitle: 归档的工作\nstatus: active\n---\n', encoding='utf-8')
+        panel = self.home()
+        expect(panel.get_by_label('全部任务', exact=True).locator('strong')).to_have_text('4')
+        expect(panel.get_by_label('待推进', exact=True).locator('strong')).to_have_text('2')
