@@ -17,6 +17,10 @@ communicate current location and operation scope.
 - Keep two adjustable areas: project display and project browser. The project
   list and current project's Task/Run records have separate scroll areas.
   Task groups contain their Runs and carry their status and date as metadata.
+- The project list, Task/Run navigation, directory list and file preview fade
+  at the bottom of their own scroll viewport while content continues below.
+  The fade clears at the end, for visible keyboard focus and in forced colors.
+  Panel headers and directory totals remain outside the fade.
 - The project browser owns homepage/content switching. A project supplies its
   own customizable homepage. Every project retains the Home/Content switch.
   Without a custom page, Home shows a built-in dashboard using the current

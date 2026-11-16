@@ -56,7 +56,7 @@
         </div>
       </header>
       <div class="showcase-layout">
-        <nav id="sidebar-scroll" class="sidebar-scroll" aria-label="项目列表">
+        <nav id="sidebar-scroll" class="sidebar-scroll" data-scroll-end-fade aria-label="项目列表">
           <section class="side-group">
             <div class="list-caption">已固定</div>
             <nav id="pinned-projects" class="project-list"></nav>
@@ -72,7 +72,7 @@
             <h2 id="stage-title"></h2>
             <div id="project-toolbar" class="project-toolbar hidden" data-testid="project-toolbar" role="toolbar" aria-label="项目工具栏"></div>
           </header>
-          <div id="project-navigation" class="project-navigation"></div>
+          <div id="project-navigation" class="project-navigation" data-scroll-end-fade></div>
         </section>
       </div>
     </aside>
@@ -139,7 +139,7 @@
           <div id="main-split" class="main-split">
             <div id="file-navigation" class="split-list">
               <!-- 目录列表 -->
-              <section id="dir-view" data-testid="directory-view" aria-label="目录内容" class="dir-view hidden">
+              <section id="dir-view" data-testid="directory-view" aria-label="目录内容" class="dir-view hidden" data-scroll-end-fade>
                 <table class="entries">
                   <thead><tr>
                     <th scope="col" data-column="name" aria-labelledby="directory-name-heading">
@@ -184,7 +184,7 @@
               <header class="preview-header">
                 <h2 id="preview-title" class="preview-title">预览</h2>
               </header>
-              <div id="preview-body" class="preview-body"></div>
+              <div id="preview-body" class="preview-body" data-scroll-end-fade></div>
             </aside>
           </div>
         </section>

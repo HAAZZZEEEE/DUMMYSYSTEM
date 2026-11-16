@@ -20,3 +20,27 @@ export function revealOption(host, option) {
   if (row.top < list.top) host.scrollTop -= list.top - row.top;
   else if (row.bottom > list.bottom) host.scrollTop += row.bottom - list.bottom;
 }
+
+export function mountScrollEndFades() {
+  for (const scroller of document.querySelectorAll('[data-scroll-end-fade]')) {
+    function update() {
+      const remaining = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop;
+      scroller.classList.toggle('scroll-end-overflow', scroller.clientHeight > 0 && remaining > 1);
+    }
+    const resize = new ResizeObserver(() => {
+      scroller.style.setProperty('--scroll-gutter-inline', `${scroller.offsetWidth - scroller.clientWidth}px`);
+      scroller.style.setProperty('--scroll-gutter-block', `${scroller.offsetHeight - scroller.clientHeight}px`);
+      update();
+    });
+    function observeContent() {
+      // Navigation and preview may replace their content without resizing the scroll viewport.
+      resize.disconnect();
+      resize.observe(scroller, { box: 'border-box' });
+      for (const child of scroller.children) resize.observe(child, { box: 'border-box' });
+      update();
+    }
+    observeContent();
+    new MutationObserver(observeContent).observe(scroller, { childList: true });
+    scroller.addEventListener('scroll', update, { passive: true });
+  }
+}

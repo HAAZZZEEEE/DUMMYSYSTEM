@@ -16,6 +16,7 @@ import { createView, flash, fatal } from './view.js';
 import { createDeleted } from './deleted.js';
 import { mountNavSort } from './navsort.js';
 import { createOverview } from './overview.js';
+import { mountScrollEndFades } from './interaction.js';
 
 const session = createSession();
 mountNavSort(session, flash);
@@ -59,6 +60,7 @@ session.bootstrap().then(async (catalog) => {
   view.wire();
   quickAccess.wire();
   search.wire();
+  mountScrollEndFades();
   const initial = navigation.start(session.preferences.last_location);
   view.show();
   void deleted.reload();
