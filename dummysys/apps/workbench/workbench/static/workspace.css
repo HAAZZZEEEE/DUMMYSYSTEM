@@ -594,20 +594,17 @@
 .column-moves { display: flex; }
 .column-moves .icon-btn { width: 25px; height: 25px; }
 .column-down .type-icon { transform: rotate(180deg); }
-.entries .name-cell { container: directory-name / inline-size; }
+.entries .name-cell { container-type: inline-size; }
 .entry-name { display: block; flex: 1; min-width: 0; }
 .entry-name .name-text { display: block; min-width: 0; font-size: 12.5px; line-height: 1.38; }
-.entry-record-meta { display: block; color: var(--workspace-muted); font-size: 10px; line-height: 1.27; font-variant-numeric: tabular-nums; }
+.entry-record-meta { display: block; margin-top: 2px; color: var(--workspace-muted); font-size: 10px; line-height: 1.27; font-variant-numeric: tabular-nums; }
+.split-list .entries tr:has(.entry-record-meta) td { height: 44px; }
 .entries tr:focus-visible .name-text { white-space: normal; overflow-wrap: anywhere; }
-@container directory-name (min-width: 420px) {
-  .entry-name:has(.entry-record-meta) { display: flex; align-items: baseline; gap: 9px; }
-  .entry-name .name-text { flex: 1; }
-  .entry-record-meta { flex: none; white-space: nowrap; }
-}
 .entries tr[aria-current="true"] { background: var(--accent-surface); }
 .entries tr[aria-current="true"] .name-text { color: var(--accent); }
 .entries tr:focus { box-shadow: none; }
 :root[data-density="compact"] .split-list .entries td { padding-block: 1px; }
+:root[data-density="compact"] .split-list .entries tr:has(.entry-record-meta) td { height: 40px; }
 :root[data-density="compact"] .entry-name .name-text { line-height: 1.28; }
 :root[data-density="compact"] .entry-record-meta { line-height: 1.2; }
 .preview-header { padding: 10px 14px; }

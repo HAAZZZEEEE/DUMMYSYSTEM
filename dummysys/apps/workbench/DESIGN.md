@@ -83,12 +83,13 @@ compact controls and metadata use smaller sizes, with hierarchy also conveyed
 by weight and semantic text color. Keep Chinese fallbacks and long-text reading.
 
 Use the shell's surface, edge and shadow tokens for the two panels. Use the
-shared control tokens for inputs, buttons and dialogs. Directory rows have
-35px and 32px minimums in comfortable and compact density. File and directory
-names use regular 12.5px text on one line with an ellipsis when needed. Hover
-shows the original name, and keyboard focus wraps the row's name to reveal it.
-Task and Run metadata sits on the same line when the name cell has room and
-below the name when the cell narrows, including when optional columns are shown.
+shared control tokens for inputs, buttons and dialogs. Ordinary files and
+folders have 35px and 32px minimum row heights in comfortable and compact
+density. Recognized Task and Run folders use 44px and 40px minimums, with
+subdued metadata on a separate line below the name at every list width.
+File and directory names use regular 12.5px text on one line with an ellipsis
+when needed. Hover shows the original name, and keyboard focus wraps the row's
+name to reveal it.
 The directory table defaults to Name. Its header settings expose Type,
 Modified, Size and File Count. Name stays first. In the column settings,
 moving an optional column changes its left-to-right position, including when

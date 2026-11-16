@@ -39,7 +39,10 @@ class ExperienceTests(BrowserCase):
 
     def test_directory_sort_type_reset_and_count(self):
         self.project()
+        settings = self.page.get_by_test_id('directory-columns-toggle')
+        settings.click()
         self.page.locator('#directory-kind').select_option('file')
+        self.page.keyboard.press('Escape')
         expect(self.page.locator('#entries-body .dir-row')).to_have_count(0)
         expect(self.page.locator('#directory-status')).to_contain_text('0 个文件夹')
         self.page.locator('#dir-filter').fill('不存在')
@@ -48,7 +51,9 @@ class ExperienceTests(BrowserCase):
         expect(self.page.locator('#dir-filter')).to_have_value('')
         expect(self.page.locator('#entries-body .dir-row')).to_have_count(2)
         self.enter(MANY)
+        settings.click()
         self.page.locator('#directory-sort').select_option('name_desc')
+        self.page.keyboard.press('Escape')
         expect(self.page.locator('#entries-body tr').first).to_contain_text('204')
         expect(self.page.locator('#directory-status')).to_contain_text('200 / 205 项')
         self.page.locator('#btn-more').click()
