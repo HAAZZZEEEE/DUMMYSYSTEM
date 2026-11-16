@@ -131,8 +131,8 @@ class Application:
             self._target(preferences['last_location'])
             location = preferences['last_location']
             if location.get('root_id') == 'homepage':
-                from .homepage import Homepage
-                if location.get('relative_path') or not Homepage(self.catalog).describe(location['project_id']):
+                self.catalog.find_project(location['project_id'])
+                if location.get('relative_path'):
                     raise InvalidTarget('首页位置无效')
             else:
                 self.catalog.resolve_target(location)

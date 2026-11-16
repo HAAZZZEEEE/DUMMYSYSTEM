@@ -70,9 +70,9 @@ class RootContextTests(BrowserCase):
         self.project(B)
         self.switch('repo:demo', project=B)
         self.switch('docs', project=B)
-        self.project(A)
+        self.project(A, relative=TASK + '/' + SPECIAL)
         self.switch('repo:demo', 'src')
-        self.switch('docs')  # 明确选择项目入口后不恢复旧 Task。
+        self.switch('docs', TASK + '/' + SPECIAL)  # 从首页返回内容，恢复本项目上次位置。
 
     def test_archived_task_uses_paired_prefix(self):
         self.prepare(archived=True)

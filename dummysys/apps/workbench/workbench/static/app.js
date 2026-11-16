@@ -44,6 +44,7 @@ const overview = createOverview(navigation);
 navigation.setLoader((ctx, append) => ctx.target.root_id === 'homepage' ? homepage.load(ctx) : directory.load(ctx, append));
 navigation.onCatalog = async (catalog) => {
   view.catalog(catalog);
+  homepage.catalog(catalog);
   quickAccess.catalog(catalog);
   overview.catalog();
   await Promise.all([navPanel.reloadNav(), deleted.reload()]);
@@ -53,6 +54,7 @@ session.bootstrap().then(async (catalog) => {
   await ptr.loadSurface().catch((error) => flash(`操作能力加载失败：${error.message}`));
   theme.init();
   view.catalog(catalog);
+  homepage.catalog(catalog);
   quickAccess.catalog(catalog);
   view.wire();
   quickAccess.wire();

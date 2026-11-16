@@ -87,6 +87,17 @@ class HomepageTests(WebTestBase):
         self.application.save_preferences({'last_location': value})
         self.assertEqual(self.application.load_preferences()['last_location'], value)
 
+    def test_default_homepage_location_persists_but_invalid_project_or_path_does_not(self):
+        from workbench.catalog import CatalogError
+        self.config.unlink()
+        value = {'project_id': PID_A, 'root_id': 'homepage', 'relative_path': ''}
+        self.application.save_preferences({'last_location': value})
+        self.assertEqual(self.application.load_preferences()['last_location'], value)
+        for invalid in ({**value, 'project_id': 'missing-project'}, {**value, 'relative_path': 'child'}):
+            with self.assertRaises(CatalogError):
+                self.application.save_preferences({'last_location': invalid})
+        self.assertEqual(self.application.load_preferences()['last_location'], value)
+
     def test_repo_homepage_respects_registered_subpaths(self):
         repo = self.root / 'repo'
         (repo / 'allowed/pages').mkdir(parents=True)

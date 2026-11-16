@@ -13,3 +13,9 @@
 配置、临时文件与状态放入目标工作区 runtime/workbench；共享规则来自安装的 dummysys-core，写入调用配套 CLI。验证见 [verification.md](docs/verification.md)。
 
 可选原生窗口使用配置项 `apps.window_icon_path` 指定本机 ICO；相对路径以配置文件目录为准，不从当前目录或旧源码仓查找。明确配置的图标缺失时报告错误，未配置时使用包内自带的 Workbench 图标。个人图像留在 runtime，不因本机使用而收入发行包。原生窗口设置独立的 DUMMYSYS 任务栏身份，后台服务、窗口及重启进程不创建控制台。
+
+## 项目首页
+
+每个项目都保留「首页 / 内容」。未配置自定义页时，首页展示任务统计、最近创建的任务和登记目录入口，下方提供可编辑、可复制的 Agent 提示词。任务统计不含已归档任务，执行记录包含归档历史；所有数字来自当前导航记录。
+
+可让 Agent 将页面包放入项目资源目录，例如 `homepage/index.html`，再在资源根 `workbench.json` 中合入 `{"schema_version":1,"homepage":{"root_id":"resources","path":"homepage/index.html"}}`。保留其他配置字段并刷新 Workbench，自定义页面会替换默认看板。已有自定义页继续在隔离 iframe 中加载；配置损坏会显示原有错误与刷新恢复入口。

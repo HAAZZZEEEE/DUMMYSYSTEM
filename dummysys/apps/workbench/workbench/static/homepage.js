@@ -1,9 +1,11 @@
 // 首页只负责隔离页面承载；内容与内部导航由项目页面自己组织。
 import { api } from './api.js';
+import { defaultHomepage } from './homepage-default.js';
 
 export function createHomepage(nav, session, flash) {
   const host = document.getElementById('project-homepage');
   let active;
+  let projects = [];
   // 仅当前首页可请求 Explorer 动作；项目身份来自上下文，不接受页面自报。
   window.addEventListener('message', async event => {
     const current = active;
@@ -103,7 +105,23 @@ export function createHomepage(nav, session, flash) {
     host.classList.toggle('hidden', !selected || !!state.error);
     if (!selected || state.loading || state.error) { active = undefined; host.replaceChildren(); }
   });
+  function saveLocation(ctx) {
+    session.save({ last_location: ctx.target }, ctx.valid).catch(error => {
+      if (ctx.valid()) flash(`位置保存失败：${error.message}`);
+    });
+  }
   async function load(ctx) {
+    if (!nav.state.homepage) {
+      const data = await api(`nav?project_id=${encodeURIComponent(ctx.target.project_id)}`, { signal: ctx.signal });
+      if (!ctx.valid()) return;
+      const project = projects.find(item => item.project_id === ctx.target.project_id);
+      const page = defaultHomepage(data, project, nav, ctx);
+      nav.state.loading = false;
+      nav.emit();
+      host.replaceChildren(page);
+      saveLocation(ctx);
+      return;
+    }
     const data = await api(`homepage?project_id=${encodeURIComponent(ctx.target.project_id)}`, { signal: ctx.signal });
     if (!ctx.valid()) return;
     const frame = document.createElement('iframe');
@@ -121,9 +139,7 @@ export function createHomepage(nav, session, flash) {
     nav.emit();
     host.replaceChildren(frame);
     active = {frame, ctx, projectId:ctx.target.project_id, opens:new Map(), opening:false};
-    session.save({ last_location: ctx.target }, ctx.valid).catch(error => {
-      if (ctx.valid()) flash(`位置保存失败：${error.message}`);
-    });
+    saveLocation(ctx);
   }
-  return { load };
+  return { load, catalog(data) { projects = data.projects || []; } };
 }

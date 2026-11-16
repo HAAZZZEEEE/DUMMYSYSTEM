@@ -192,9 +192,11 @@ class BrowserCase(unittest.TestCase):
         expect(self.page.locator("#error-view")).to_be_hidden()
         self.assertEqual({key: value[0] for key, value in parse_qs(urlsplit(self.page.url).query, keep_blank_values=True).items()}, expected)
 
-    def project(self, project=A):
+    def project(self, project=A, relative="", root="docs"):
         self.page.locator(f'[data-testid="project-link"][data-id="{project}"]').click()
-        self.ready(project=project)
+        expect(self.page.get_by_role('tab', name='项目首页', exact=True)).to_have_attribute('aria-selected', 'true')
+        self.page.get_by_role('tab', name='项目内容', exact=True).click()
+        self.ready(relative, project=project, root=root)
 
     def enter(self, relative, project=A):
         self.row(relative, project).click()

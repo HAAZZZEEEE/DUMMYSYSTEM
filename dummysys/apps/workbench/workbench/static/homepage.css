@@ -1,0 +1,55 @@
+.default-homepage { flex:1; min-width:0; overflow:auto; overscroll-behavior:contain; padding:32px clamp(20px, 3vw, 40px) 40px; color:var(--ink); background:var(--canvas); }
+.default-homepage h1, .default-homepage h2, .default-homepage p { margin:0; }
+.dh-muted { color:var(--ink-muted-48); }
+.dh-heading { display:flex; align-items:center; justify-content:space-between; gap:20px; margin-bottom:26px; }
+.dh-heading h1 { font-size:25px; font-weight:650; letter-spacing:-.5px; }
+.dh-heading p { font-size:13px; margin-top:8px; overflow-wrap:anywhere; }
+.dh-badge { border:1px solid var(--hairline); border-radius:var(--radius-pill); padding:5px 10px; font-size:11px; color:var(--ink-muted-48); white-space:nowrap; }
+.dh-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:26px; }
+.dh-stat { padding:20px; border:1px solid var(--hairline); border-radius:14px; background:var(--surface-pearl); min-width:0; }
+.dh-stat span, .dh-stat small { display:block; font-size:12px; }
+.dh-stat small { font-size:11px; line-height:1.6; }
+.dh-stat strong { display:block; font-size:31px; font-weight:600; line-height:1.3; margin:8px 0 4px; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.dh-columns { display:grid; grid-template-columns:minmax(0,1.65fr) minmax(220px,1fr); gap:20px; margin-bottom:28px; }
+.dh-panel { min-width:0; padding:22px; border:1px solid var(--hairline); border-radius:14px; }
+.dh-section-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:15px; }
+.dh-section-head h2 { font-size:16px; font-weight:600; }
+.dh-section-head > span { font-size:11px; white-space:nowrap; }
+.dh-task, .dh-entry { width:100%; display:flex; align-items:center; gap:12px; padding:15px 0; text-align:left; color:var(--ink); border:0; border-top:1px solid var(--hairline); background:none; cursor:pointer; font:inherit; }
+.dh-task:hover .dh-task-title, .dh-entry:hover .dh-entry-text > span { color:var(--accent); }
+.dh-task > svg, .dh-entry > svg { flex-shrink:0; width:18px; height:18px; color:var(--ink-muted-48); }
+.dh-task-text, .dh-entry-text { min-width:0; flex:1; overflow-wrap:anywhere; }
+.dh-task-title, .dh-entry-text > span { display:block; font-size:13px; font-weight:500; line-height:1.6; }
+.dh-task-text small, .dh-entry-text small { display:block; font-size:11px; line-height:1.7; margin-top:4px; }
+.dh-status { font-size:11px; color:var(--ink-muted-48); white-space:nowrap; }
+.dh-active { color:var(--accent); }
+.dh-entry > svg:first-child { box-sizing:content-box; padding:9px; border-radius:10px; background:var(--parchment); }
+.dh-empty { padding:18px 0; font-size:13px; line-height:1.8; }
+.dh-guide { border:1px solid var(--hairline); border-radius:16px; padding:25px 28px; background:var(--surface-pearl); }
+.dh-guide h2 { font-size:18px; font-weight:600; }
+.dh-guide p { font-size:13px; margin-top:8px; line-height:1.8; }
+.dh-examples { display:flex; flex-wrap:wrap; gap:8px; margin:19px 0 12px; }
+.dh-chip { border:1px solid var(--hairline); border-radius:var(--radius-pill); padding:7px 13px; background:var(--canvas); color:var(--ink); font:inherit; font-size:12px; cursor:pointer; }
+.dh-chip[aria-pressed=true] { color:var(--accent); border-color:var(--accent); background:var(--accent-surface); }
+.dh-prompt { display:block; width:100%; min-height:98px; resize:vertical; padding:15px 16px; box-sizing:border-box; border:1px solid var(--hairline); border-radius:11px; background:var(--canvas); color:var(--ink-muted-80); font:inherit; font-size:12px; line-height:1.8; }
+.dh-guide-bottom { display:flex; align-items:center; justify-content:space-between; gap:15px; margin-top:13px; }
+.dh-guide-bottom small { font-size:11px; line-height:1.6; }
+.dh-copy { border-radius:var(--radius-pill); white-space:nowrap; }
+.default-homepage .dh-footnote { margin-top:17px; font-size:11px; }
+.default-homepage .dh-notice { margin-bottom:20px; font-size:13px; line-height:1.7; }
+.project-homepage { container-type:inline-size; }
+@container (max-width:800px) {
+  .dh-columns { grid-template-columns:1fr; }
+  .dh-stat { padding:16px; }
+}
+@container (max-width:480px) {
+  .default-homepage { padding:24px 18px 32px; }
+  .dh-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .dh-heading h1 { font-size:22px; }
+  .dh-badge { display:none; }
+  .dh-panel, .dh-guide { padding:18px; }
+  .dh-guide h2 { font-size:17px; }
+  .dh-guide-bottom { align-items:stretch; flex-direction:column; }
+  .dh-prompt { min-height:150px; }
+  .dh-task { gap:8px; }
+}

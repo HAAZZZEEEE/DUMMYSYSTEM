@@ -160,7 +160,7 @@ export function createView(nav, session, actions, tree, navPanel, preview) {
   }
   function syncBrowserMode(state, home) {
     const project = !!state.target?.project_id;
-    const hasHomepage = project && !!state.homepage;
+    const hasHomepage = project;
     $('project-mode').classList.toggle('hidden', !project || (!hasHomepage && !state.roots.length));
     homeTab.classList.toggle('hidden', !hasHomepage);
     homeTab.setAttribute('aria-selected', String(home));

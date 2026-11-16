@@ -95,17 +95,14 @@ export function createNavigation() {
         state.roots = data.roots || [];
         state.homepage = data.homepage || null;
       }
-      if (!state.target.root_id || (preferHomepage && (state.homepage || state.target.root_id === 'homepage'))) {
-        const root = state.homepage ? { root_id: 'homepage' }
-          : state.roots.find((item) => item.kind === 'docs') || state.roots[0];
-        if (!root) throw new Error('该项目没有可浏览的根目录。');
-        state.target = target({ ...state.target, root_id: root.root_id, relative_path: '' });
+      if (!state.target.root_id || preferHomepage) {
+        state.target = target({ ...state.target, root_id: 'homepage', relative_path: '' });
         rememberLocation(state.target);
         ctx.target = state.target;
         history.replaceState({ workbench: true }, '', locationURL(state.target));
       }
       emit();
-      if (!(state.target.root_id === 'homepage' && state.homepage)
+      if (state.target.root_id !== 'homepage'
           && !state.roots.some((root) => root.root_id === state.target.root_id)) throw new Error('本次目标的根目录不存在或已取消登记。');
       await loader(ctx);
     } catch (error) {

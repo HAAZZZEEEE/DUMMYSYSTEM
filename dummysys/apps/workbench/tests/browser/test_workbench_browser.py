@@ -28,13 +28,14 @@ class WorkbenchBrowserTests(BrowserCase):
         self.ready(SPECIAL + "/第二层 [深]#&")
         self.page.get_by_test_id("history-back").click()
         self.ready(DEEP)
-        # URL 无位置时，恢复服务端保存的最后成功位置。
+        # URL 无位置时，保留所属项目并优先展示项目首页。
         self.page.wait_for_function("document.querySelector('#dir-view').getAttribute('aria-busy') === 'false'")
         with self.page.expect_response(lambda response: response.url.endswith('/api/v1/preferences') and response.request.method == 'PATCH'):
             self.page.locator("#btn-refresh").click()
         self.ready(DEEP)
         self.page.goto(self.origin + "/")
-        self.ready(DEEP)
+        expect(self.page.get_by_test_id("default-homepage")).to_be_visible()
+        expect(self.page.get_by_role("tab", name="项目首页", exact=True)).to_have_attribute("aria-selected", "true")
 
     def test_root_tabs_and_home_history(self):
         self.project()

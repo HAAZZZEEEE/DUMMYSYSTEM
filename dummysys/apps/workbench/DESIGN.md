@@ -18,7 +18,14 @@ communicate current location and operation scope.
   list and current project's Task/Run records have separate scroll areas.
   Task groups contain their Runs and carry their status and date as metadata.
 - The project browser owns homepage/content switching. A project supplies its
-  own customizable homepage. The homepage can expand by hiding the project
+  own customizable homepage. Every project retains the Home/Content switch.
+  Without a custom page, Home shows a built-in dashboard using the current
+  project navigation records: non-archived task counts, execution counts,
+  three newest tasks and registered roots. Below it, editable Agent prompt
+  examples explain customization and can be copied with project identity and
+  configuration instructions. Empty projects retain the dashboard and guide.
+  Invalid custom configuration remains an error with refresh recovery.
+  The homepage can expand by hiding the project
   display. Returning to content restores the project's latest content location
   in the session. Content mode has visible root tabs and a file list beside
   an adjustable preview. The repository tab retains the registered-repository
@@ -38,7 +45,7 @@ communicate current location and operation scope.
   reduced or unsupported. Keep the visible keyboard focus ring.
 - Use pill shapes for quick jump, global search, header actions and the project
   browser's mode switch. With both modes available, the selected segment sits
-  inside the track. With content alone, show one raised pill.
+  inside the track. Both modes remain available even before a custom homepage is configured.
 - Selected projects use lightly raised surfaces. Task groups use a neutral
   boundary. Selected Runs use a shallow tinted surface within their parent.
   Hover and keyboard focus on history headings stay inside their group border.

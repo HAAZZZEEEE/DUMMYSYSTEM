@@ -179,11 +179,12 @@ catch { document.querySelector('#isolation').textContent = '隔离成功'; }
         self.delay('homepage')
         self.page.locator(f'[data-testid="project-link"][data-id="{A}"]').click()
         self.delay_ready()
-        self.project(B)
+        self.page.locator(f'[data-testid="project-link"][data-id="{B}"]').click()
+        expect(self.page.get_by_test_id('default-homepage')).to_contain_text('项目 B')
         self.release()
-        expect(self.page.get_by_role('tab', name='项目首页', exact=True)).to_have_count(0)
+        expect(self.page.get_by_role('tab', name='项目首页', exact=True)).to_have_attribute('aria-selected', 'true')
         expect(self.page.get_by_test_id('homepage-frame')).to_have_count(0)
-        self.ready(project=B)
+        expect(self.page.get_by_test_id('default-homepage')).to_contain_text('项目 B')
 
     def test_start_prefers_home_but_explicit_directory_url_is_preserved(self):
         self.prepare()
@@ -205,5 +206,5 @@ catch { document.querySelector('#isolation').textContent = '隔离成功'; }
         }""")
         (self.resources / 'workbench.json').unlink()
         self.page.goto(self.origin + '/')
-        self.ready()
-        expect(self.page.get_by_role('tab', name='项目首页', exact=True)).to_have_count(0)
+        expect(self.page.get_by_test_id('default-homepage')).to_be_visible()
+        expect(self.page.get_by_role('tab', name='项目首页', exact=True)).to_have_attribute('aria-selected', 'true')
