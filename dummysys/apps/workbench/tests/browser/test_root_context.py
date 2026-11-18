@@ -84,6 +84,27 @@ class RootContextTests(BrowserCase):
         self.switch('resources', TASK + '/' + SPECIAL)
         self.switch('docs', self.doc_task + '/' + SPECIAL)
 
+    def test_run_resources_switch_to_archived_task_docs(self):
+        self.prepare(archived=True)
+        run = TASK + '/runs/[20261118-090000]浏览验证'
+        evidence = run + '/evidence'
+        (self.resources / evidence).mkdir(parents=True)
+        self.enter('archive')
+        self.enter(self.doc_task)
+        self.switch('resources', TASK)
+        for relative in (TASK + '/runs', run, evidence):
+            self.target_locator('directory-entry', relative, root='resources').click()
+            self.ready(relative, root='resources')
+        self.page.get_by_role('tab', name='根目录：文档', exact=True).click()
+        expect(self.page.get_by_test_id('directory-view')).to_have_attribute('aria-busy', 'false')
+        expect(self.page.locator('#error-view')).to_be_hidden(timeout=1500)
+        self.ready(self.doc_task)
+        expect(self.target_locator('directory-entry', self.doc_task + '/README.md')).to_be_visible()
+        self.page.go_back()
+        self.ready(evidence, root='resources')
+        self.page.go_forward()
+        self.ready(self.doc_task)
+
     def test_missing_counterpart_keeps_target_and_can_return(self):
         self.prepare()
         missing = TASK + '/仅文档'

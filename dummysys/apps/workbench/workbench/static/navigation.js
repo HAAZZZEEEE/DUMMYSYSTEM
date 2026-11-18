@@ -54,7 +54,13 @@ export function createNavigation() {
     // 已归档 Task 的文档与资源前缀可能不同，使用目录登记的配对关系。
     const task = tasks.find((item) => item[side] &&
       (relative === item[side].relative_path || relative.startsWith(`${item[side].relative_path}/`)));
-    if (task?.[other]) relative = task[other].relative_path + relative.slice(task[side].relative_path.length);
+    if (task?.[other]) {
+      const suffix = relative.slice(task[side].relative_path.length);
+      // Run 目录归属项目资源，切换到文档时进入所属 Task。
+      const resourceRun = side === 'resource' && rootId === 'docs'
+        && (suffix === '/runs' || suffix.startsWith('/runs/'));
+      relative = task[other].relative_path + (resourceRun ? '' : suffix);
+    }
     return target({ ...current, root_id: rootId, relative_path: relative });
   }
   function rememberLocation(value) {
