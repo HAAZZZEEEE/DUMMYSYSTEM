@@ -548,6 +548,7 @@ def resolve_evidence(root, value):
 
 
 def check(root):
+    from ._frontmatter import read
     failures, seen = [], set()
     def identity(value, label):
         try:
@@ -601,11 +602,11 @@ def check(root):
                         failures.append(f'Task 路径绑定不一致：{task_name}')
                     if (doc_paths[task_name].parent.name == 'archive'
                             and task.get('status') not in {'completed', 'cancelled'}
-                            and task.get('archive_unfinished_confirmed') is not True):
+                            and read(doc_paths[task_name] / 'README.md').get('archive_unfinished_confirmed') is not True):
                         failures.append(f'未完成 Task 归档缺少显式确认：{task_name}')
                     if (docs.parent.name == 'archive'
                             and task.get('status') not in {'completed', 'cancelled'}
-                            and props.get('archive_unfinished_confirmed') is not True):
+                            and read(readme).get('archive_unfinished_confirmed') is not True):
                         failures.append(f'项目含未完成 Task，归档缺少显式确认：{task_name}')
                     scope = meta['scope']
                     for key in ('read_paths', 'write_paths', 'remote_resources'):

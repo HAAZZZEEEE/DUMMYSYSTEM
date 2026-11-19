@@ -94,6 +94,7 @@ class MigrationExecuteTests(unittest.TestCase):
                 self.assertEqual(current['owner'], 'alice')
                 self.assertTrue(current['archive_unfinished_confirmed'])
                 self.assertEqual(current['archived_from_status'], status)
+                self.assertEqual(self.ws.check()['failures'], [])
                 self.assertIn('/archive/', current['document'].replace('\\', '/'))
                 undo = {'task': task, 'reason': '继续维护'}
                 token = self.ws.plan('task.unarchive', undo, actor='alice')['plan_token']
@@ -135,6 +136,8 @@ class MigrationExecuteTests(unittest.TestCase):
             if_version=self.ws.version('project', project), if_plan=plan['plan_token'])
         for task, status in tasks:
             self.assertEqual(self.ws.task(task)['status'], status)
+        failures = self.ws.check()['failures']
+        self.assertFalse([f for f in failures if f.startswith('项目含未完成 Task，归档缺少显式确认：')])
         undo = {'project': project, 'reason': '恢复项目'}
         token = self.ws.plan('project.unarchive', undo, actor='alice')['plan_token']
         self.ws.mutate('project.unarchive', undo, actor='alice', request_id='project-undo',
